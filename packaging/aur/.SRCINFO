@@ -14,6 +14,6 @@ pkgbase = switchyard
 	optdepends = libnotify: failure notifications
 	optdepends = git: repo badges on the board
 	source = switchyard-0.2.0.tar.gz::https://github.com/NathanielInman/switchyard/archive/v0.2.0.tar.gz
-	sha256sums = cb7474b4b55673af88d9fbcf48b7d524daca4a7fe25fb3f5fb067456f28db134
+	sha256sums = eb8c7ee2c5ab6699e36376320643af5f1d5375ce794b0f5975e7265832cb7856
 
 pkgname = switchyard

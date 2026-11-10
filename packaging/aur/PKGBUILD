@@ -12,7 +12,7 @@ optdepends=('libnotify: failure notifications'
             'git: repo badges on the board')
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('cb7474b4b55673af88d9fbcf48b7d524daca4a7fe25fb3f5fb067456f28db134')
+sha256sums=('eb8c7ee2c5ab6699e36376320643af5f1d5375ce794b0f5975e7265832cb7856')
 
 prepare() {
   cd "$pkgname-$pkgver"
