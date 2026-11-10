@@ -1,12 +1,12 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A dispatch board for the scripts you keep writing",
   "homepage": "https://github.com/NathanielInman/switchyard",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/NathanielInman/switchyard/releases/download/v0.1.0/switchyard-x86_64-pc-windows-msvc.zip",
-      "hash": "7d234a5e4e052029d49c6b0b3059215113d12d2f87d28b8db6cc12380d362681"
+      "url": "https://github.com/NathanielInman/switchyard/releases/download/v0.2.0/switchyard-x86_64-pc-windows-msvc.zip",
+      "hash": "313c0c563e672c31e35c7cdebb80d56872ba7fbca1a56dfa1f3f29039a18dfd2"
     }
   },
   "bin": [

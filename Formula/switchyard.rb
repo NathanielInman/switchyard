@@ -2,26 +2,26 @@
 class Switchyard < Formula
   desc "A dispatch board for the scripts you keep writing"
   homepage "https://github.com/NathanielInman/switchyard"
-  version "0.1.0"
+  version "0.2.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/NathanielInman/switchyard/releases/download/v0.1.0/switchyard-aarch64-apple-darwin.tar.gz"
-      sha256 "57d798b49da0ada109da0909c276af7ccf08f3489e942d4d1b51d5a415279d4b"
+      url "https://github.com/NathanielInman/switchyard/releases/download/v0.2.0/switchyard-aarch64-apple-darwin.tar.gz"
+      sha256 "6615079a8c54ffd160e18a1d137dbc7d595839ba0e05fd454f23968d5767188b"
     else
-      url "https://github.com/NathanielInman/switchyard/releases/download/v0.1.0/switchyard-x86_64-apple-darwin.tar.gz"
-      sha256 "b3db5a389b9c151cba6f695f8581616803f42eee67198f1660f46e91929b589f"
+      url "https://github.com/NathanielInman/switchyard/releases/download/v0.2.0/switchyard-x86_64-apple-darwin.tar.gz"
+      sha256 "d8372516cf5aebbc05acc621bf8f0bcca77f90abaaa075af1b2af0cdc946b321"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/NathanielInman/switchyard/releases/download/v0.1.0/switchyard-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "51e6229b7817fe84e0e2d44879cb8918802caca9e878e397ab23b9e41850b724"
+      url "https://github.com/NathanielInman/switchyard/releases/download/v0.2.0/switchyard-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "695200eb846fe886f3c278b50cb1164f1d154de52f91a44cd102afb95d0b6cd9"
     else
-      url "https://github.com/NathanielInman/switchyard/releases/download/v0.1.0/switchyard-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "2afaa93836db16c99da19d7317b133aefa676f429313dab197a39fd83ff9368f"
+      url "https://github.com/NathanielInman/switchyard/releases/download/v0.2.0/switchyard-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "8200c413b4f78b0115ceebeec4163ad8729081edf903243cdb0807cdc503d36f"
     end
   end
 

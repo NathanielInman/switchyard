@@ -1,6 +1,6 @@
 pkgbase = switchyard
 	pkgdesc = A dispatch board for the scripts you keep writing
-	pkgver = 0.1.0
+	pkgver = 0.2.0
 	pkgrel = 1
 	url = https://github.com/NathanielInman/switchyard
 	arch = x86_64
@@ -13,7 +13,7 @@ pkgbase = switchyard
 	depends = glibc
 	optdepends = libnotify: failure notifications
 	optdepends = git: repo badges on the board
-	source = switchyard-0.1.0.tar.gz::https://github.com/NathanielInman/switchyard/archive/v0.1.0.tar.gz
-	sha256sums = 1452791bb9a6ef0ba551ee30812f2e0a6e93ace666b4c1072584dda82289e107
+	source = switchyard-0.2.0.tar.gz::https://github.com/NathanielInman/switchyard/archive/v0.2.0.tar.gz
+	sha256sums = cb7474b4b55673af88d9fbcf48b7d524daca4a7fe25fb3f5fb067456f28db134
 
 pkgname = switchyard
