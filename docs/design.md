@@ -157,6 +157,14 @@ below `mainline.min_free`. Each heavy build gets `MemoryMax` from the task or
 `mainline.mem`, `MemorySwapMax=0`, `CPUWeight=idle` and nice 19. Non-heavy
 tasks never wait.
 
+When a sibling [Roundhouse](https://github.com/NathanielInman/roundhouse) is
+running and its lamp says `act` (memory stalling, a filesystem past 95%, a CPU
+or GPU at its limit), the head of the queue also waits, with the reason as its
+message: "held: Roundhouse says /data is 96% full". The daemon asks Roundhouse
+every 5 seconds, every second while a build is held, and starts the build on
+the first calm answer. `mainline.respect_roundhouse = false` turns this off;
+without Roundhouse it does nothing. See [Siblings](#siblings).
+
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.
@@ -193,6 +201,33 @@ without touching the rest.
 board opens above a bottom taskbar or below the menu bar, centered on the icon
 and clamped to the screen. The window is exactly the size of the panel and
 grows away from its anchor. It hides when it loses focus, like any menu.
+
+## Siblings
+
+Switchyard and [Roundhouse](https://github.com/NathanielInman/roundhouse) (a
+system drawer behind one lamp in the bar) know about each other and need
+nothing from each other.
+
+1. **Neither requires the other.** Every sibling feature is off when the
+   sibling is absent. No error, no log line, no wait longer than a 300 ms
+   connect deadline.
+2. **Discovery is the socket.** Roundhouse is present when
+   `$ROUNDHOUSE_RUNTIME_DIR/rh.sock` (else `$XDG_RUNTIME_DIR/roundhouse/rh.sock`)
+   answers.
+3. **No shared crates on the wire.** Each side reads the other's JSON loosely,
+   unknown fields ignored, so they upgrade in any order.
+4. **Handoff keeps the anchor.** A `show` with the same `anchor` opens the
+   other panel from the same icon.
+
+What Switchyard uses from Roundhouse:
+
+| Request | Used for |
+|---|---|
+| `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level` and `lamp.reasons[].level`/`text`: holds the main line on `act`, shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
+
+What Roundhouse uses from Switchyard: its `snapshot` (aggregate phase, main
+line, task labels) for a Switchyard tab, and `{"cmd":"show","anchor":...}` for
+a button that opens this board from the same icon.
 
 ## History
 
@@ -263,6 +298,7 @@ editor = ["kitty", "--class", "float-term", "-e", "nvim", "+{line}", "{file}"]
 
 [mainline]
 min_free = "16G"      # MemAvailable required before a heavy build starts
+respect_roundhouse = true  # hold heavy builds while a running Roundhouse says act
 mem = "16G"           # default MemoryMax for heavy builds
 idle_cpu = true       # CPUWeight=idle for heavy builds
 nice = 19

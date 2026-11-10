@@ -231,8 +231,35 @@ pub struct Snapshot {
     /// Bumps whenever a run finishes, so a board knows to refresh history.
     #[serde(default)]
     pub history_rev: u64,
+    /// The machine as a running Roundhouse sees it; `None` when Roundhouse
+    /// is not running.
+    #[serde(default)]
+    pub machine: Option<MachineView>,
     /// Unix seconds on the daemon's clock, so clients can correct for skew.
     pub now: f64,
+}
+
+/// Roundhouse's lamp: `calm`, `heads-up` or `act`, with its reasons.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct MachineView {
+    pub level: String,
+    pub reasons: Vec<MachineReason>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct MachineReason {
+    pub level: String,
+    pub text: String,
+}
+
+impl MachineView {
+    /// The first reason Roundhouse says needs acting on.
+    pub fn act_reason(&self) -> Option<&str> {
+        if self.level != "act" {
+            return None;
+        }
+        self.reasons.iter().find(|r| r.level == "act").map(|r| r.text.as_str()).or(Some("the machine needs attention"))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -15,6 +15,8 @@ export YARD_DEMO="$here"
 export SWITCHYARD_CONFIG_DIR="$root/config"
 export SWITCHYARD_STATE_DIR="$root/state"
 export SWITCHYARD_RUNTIME_DIR="$root/run"
+# A real Roundhouse could hold the demo's heavy builds; point at none.
+export ROUNDHOUSE_RUNTIME_DIR="$root/roundhouse"
 export PATH="$here/bin:$PATH"
 mkdir -p "$SWITCHYARD_CONFIG_DIR" "$SWITCHYARD_STATE_DIR"
 cp "$here/config.toml" "$SWITCHYARD_CONFIG_DIR/config.toml"
@@ -25,7 +27,7 @@ fi
 bin="${YARD_BIN:-$here/../../target/debug}"
 case "${1:-}" in
   env)
-    echo "export YARD_DEMO='$YARD_DEMO' SWITCHYARD_CONFIG_DIR='$SWITCHYARD_CONFIG_DIR' SWITCHYARD_STATE_DIR='$SWITCHYARD_STATE_DIR' SWITCHYARD_RUNTIME_DIR='$SWITCHYARD_RUNTIME_DIR' PATH='$here/bin:$bin':\"\$PATH\""
+    echo "export YARD_DEMO='$YARD_DEMO' SWITCHYARD_CONFIG_DIR='$SWITCHYARD_CONFIG_DIR' SWITCHYARD_STATE_DIR='$SWITCHYARD_STATE_DIR' SWITCHYARD_RUNTIME_DIR='$SWITCHYARD_RUNTIME_DIR' ROUNDHOUSE_RUNTIME_DIR='$ROUNDHOUSE_RUNTIME_DIR' PATH='$here/bin:$bin':\"\$PATH\""
     ;;
   daemon)
     exec "$bin/yard" daemon

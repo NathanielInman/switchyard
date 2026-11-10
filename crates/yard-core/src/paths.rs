@@ -145,6 +145,26 @@ pub fn runtime_dir() -> PathBuf {
     }
 }
 
+/// Where a sibling Roundhouse listens, following Roundhouse's own rules,
+/// including its `ROUNDHOUSE_RUNTIME_DIR` override.
+pub fn roundhouse_socket() -> PathBuf {
+    if let Some(d) = env_dir("ROUNDHOUSE_RUNTIME_DIR") {
+        return d.join("rh.sock");
+    }
+    #[cfg(windows)]
+    {
+        local_app_data().join("roundhouse").join("run").join("rh.sock")
+    }
+    #[cfg(unix)]
+    {
+        if let Some(d) = env_dir("XDG_RUNTIME_DIR") {
+            return d.join("roundhouse").join("rh.sock");
+        }
+        let base = env_dir("TMPDIR").unwrap_or_else(|| PathBuf::from("/tmp"));
+        base.join(format!("roundhouse-{}", unsafe { libc::getuid() })).join("rh.sock")
+    }
+}
+
 pub fn socket_path() -> PathBuf {
     runtime_dir().join("yard.sock")
 }

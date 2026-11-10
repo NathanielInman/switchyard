@@ -338,6 +338,14 @@ pub fn doctor() -> Result<i32> {
     }
     let scan = cfg.scan_dirs();
     println!("     scanning {} directories, {} script dirs", scan.len(), cfg.scripts.len());
+    // A sibling is optional, so its absence is never a failure.
+    match yard_core::sibling::roundhouse() {
+        Some(m) => {
+            let hold = if cfg.mainline.respect_roundhouse { "heavy builds wait while it says act" } else { "mainline.respect_roundhouse is off" };
+            check(true, &format!("Roundhouse: running, lamp {} ({hold})", m.level), "");
+        }
+        None => println!("     Roundhouse: not running (optional; it can hold heavy builds when the machine needs attention)"),
+    }
     Ok(if all { 0 } else { 1 })
 }
 

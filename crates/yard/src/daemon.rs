@@ -35,6 +35,8 @@ enum Msg {
     Client { req: Request, stream: Stream },
     Tick,
     Git(Vec<(PathBuf, Option<GitInfo>)>),
+    /// Roundhouse's lamp, or `None` when it is not running.
+    Machine(Option<MachineView>),
     Wake,
 }
 
@@ -162,6 +164,9 @@ pub struct Daemon {
     git_at: Option<Instant>,
     git_busy: bool,
     shelf: Option<(ShelfData, Instant)>,
+    machine: Option<MachineView>,
+    machine_at: Option<Instant>,
+    machine_busy: bool,
     ticks: u64,
     dirty: bool,
     history_rev: u64,
@@ -325,6 +330,9 @@ impl Daemon {
             git_at: None,
             git_busy: false,
             shelf: None,
+            machine: None,
+            machine_at: None,
+            machine_busy: false,
             ticks: 0,
             dirty: true,
             history_rev: 0,
@@ -355,6 +363,16 @@ impl Daemon {
                         }
                     }
                     self.dirty = true;
+                }
+                Msg::Machine(m) => {
+                    self.machine_busy = false;
+                    if m != self.machine {
+                        self.machine = m;
+                        self.dirty = true;
+                        if !self.queue.is_empty() && self.mainline.is_none() {
+                            self.schedule();
+                        }
+                    }
                 }
                 Msg::Wake => {}
             }
@@ -752,6 +770,18 @@ impl Daemon {
                 self.dirty = true;
                 break;
             }
+            if let Some(reason) = self.machine_hold() {
+                let r = self.rt(&head);
+                if r.phase != Phase::Waiting {
+                    r.set(Phase::Waiting);
+                }
+                let msg = format!("held: Roundhouse says {reason}");
+                if r.message.as_deref() != Some(msg.as_str()) {
+                    r.message = Some(msg);
+                    self.dirty = true;
+                }
+                break;
+            }
             self.queue.pop_front();
             self.mainline = Some(head.clone());
             let p = self.rt(&head).pending.take().unwrap_or_default();
@@ -767,6 +797,27 @@ impl Daemon {
                 r.message = None;
             }
         }
+    }
+
+    /// Why a running Roundhouse says the next heavy build should wait.
+    fn machine_hold(&self) -> Option<String> {
+        if !self.cfg.mainline.respect_roundhouse {
+            return None;
+        }
+        self.machine.as_ref()?.act_reason().map(String::from)
+    }
+
+    /// Asks a sibling Roundhouse for its lamp, off the event loop.
+    fn refresh_machine(&mut self) {
+        if self.machine_busy {
+            return;
+        }
+        self.machine_busy = true;
+        self.machine_at = Some(Instant::now());
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(Msg::Machine(yard_core::sibling::roundhouse()));
+        });
     }
 
     fn release_mainline(&mut self, task: &str) {
@@ -1312,6 +1363,12 @@ impl Daemon {
         if !self.queue.is_empty() && self.mainline.is_none() {
             self.schedule();
         }
+        // Look for Roundhouse every few seconds, every second while a build
+        // is held on its word.
+        let every = if self.machine_hold().is_some() && !self.queue.is_empty() { 1 } else { 5 };
+        if self.machine_at.is_none_or(|t| t.elapsed() >= Duration::from_secs(every)) {
+            self.refresh_machine();
+        }
         if self.ticks % 3 == 0 {
             self.reload(false);
         }
@@ -1546,6 +1603,7 @@ impl Daemon {
             has_editor: !self.cfg.editor.is_empty(),
             has_terminal: !self.cfg.terminal.is_empty(),
             history_rev: self.history_rev,
+            machine: self.machine.clone(),
             now: t,
         }
     }
