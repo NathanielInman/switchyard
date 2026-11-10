@@ -1525,6 +1525,11 @@ impl eframe::App for App {
             }
             if self.show_now {
                 self.show(None);
+            } else {
+                // eframe shows the window once its first frame is painted,
+                // whatever the builder said; at login that left an empty
+                // panel in the middle of the screen until the first toggle.
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
             }
         }
         while let Ok(m) = self.rx.try_recv() {
