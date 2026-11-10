@@ -1,0 +1,22 @@
+[package]
+name = "yard-tray"
+description = "Switchyard for macOS and Windows: tray icon and board"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+yard-core = { path = "../yard-core" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+regex.workspace = true
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "default_fonts", "x11", "wayland"] }
+
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+tray-icon = "0.26"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+winit = "0.30"

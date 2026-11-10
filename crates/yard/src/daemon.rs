@@ -559,7 +559,7 @@ impl Daemon {
             }
         }
         // Linux has the layer-shell board; macOS and Windows the tray app's.
-        let (bin, args): (&str, &[&str]) = if cfg!(target_os = "linux") { ("yard-board", &[]) } else { ("yard-tray", &["board"]) };
+        let (bin, args): (&str, &[&str]) = if cfg!(target_os = "linux") { ("yard-board", &[]) } else { ("yard-tray", &[]) };
         let mut c = Command::new(sys::sibling_binary(bin));
         c.args(args);
         let log = paths::state_dir().join("board.log");

@@ -168,6 +168,7 @@ pub fn compute_anchor(
         height: h,
         reserved,
         center,
+        physical: false,
     })
 }
 

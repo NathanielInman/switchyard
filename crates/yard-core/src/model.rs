@@ -268,6 +268,10 @@ pub struct Anchor {
     /// Space other surfaces reserve: left, top, right, bottom.
     pub reserved: [f64; 4],
     pub center: bool,
+    /// Coordinates are global physical pixels (tray icons) rather than
+    /// monitor-local logical ones (Hyprland).
+    #[serde(default)]
+    pub physical: bool,
 }
 
 pub fn now() -> f64 {
