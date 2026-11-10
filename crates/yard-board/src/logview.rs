@@ -59,6 +59,7 @@ impl LogView {
         text.set_editable(false);
         text.set_cursor_visible(false);
         text.set_monospace(true);
+        text.set_wrap_mode(gtk::WrapMode::WordChar);
         text.add_css_class("log");
         text.set_left_margin(10);
         text.set_right_margin(10);
@@ -98,7 +99,6 @@ impl LogView {
 
         root.append(&head);
         root.append(&scroller);
-        root.append(&path);
         root.append(&actions);
         LogView {
             root,

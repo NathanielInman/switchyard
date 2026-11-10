@@ -129,6 +129,8 @@ pub struct Board {
     shelf_rows: RefCell<Vec<ShelfRow>>,
     hold: RefCell<Option<Hold>>,
     press: RefCell<Option<Press>>,
+    /// A key whose hold already fired; its repeats are ignored until release.
+    spent_key: Cell<Option<char>>,
     toast_until: Cell<Option<Instant>>,
     ticker: RefCell<Option<glib::SourceId>>,
     last_slow: Cell<Option<Instant>>,
@@ -206,12 +208,12 @@ impl Board {
         ml_lamp.add_css_class("building");
         let ml_label = label("", "");
         ml_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        ml_label.set_hexpand(true);
         let ml_gauge = gtk::DrawingArea::new();
         ml_gauge.add_css_class("gauge");
         ml_gauge.set_content_height(6);
         ml_gauge.set_content_width(90);
         ml_gauge.set_valign(gtk::Align::Center);
-        ml_gauge.set_hexpand(true);
         let ml_text = label("", "dim");
         mainline.append(&ml_lamp);
         mainline.append(&ml_label);
@@ -332,6 +334,7 @@ impl Board {
             shelf_rows: RefCell::new(vec![]),
             hold: RefCell::new(None),
             press: RefCell::new(None),
+            spent_key: Cell::new(None),
             toast_until: Cell::new(None),
             ticker: RefCell::new(None),
             last_slow: Cell::new(None),
@@ -385,8 +388,15 @@ impl Board {
         self.window.add_controller(keys);
 
         let w = Rc::downgrade(self);
-        self.search.connect_changed(move |_| {
+        self.search.connect_changed(move |e| {
             if let Some(b) = w.upgrade() {
+                // The "/" that focused the box can arrive as text too.
+                let t = e.text();
+                if t.starts_with('/') {
+                    e.set_text(t.trim_start_matches('/'));
+                    e.set_position(-1);
+                    return;
+                }
                 b.selected.set(if b.search.text().is_empty() { None } else { Some(0) });
                 if *b.mode.borrow() == Mode::Shelf {
                     b.render_shelf();
@@ -621,6 +631,7 @@ impl Board {
         };
         if fire {
             if let Some(h) = self.hold.borrow_mut().take() {
+                self.spent_key.set(h.key);
                 if let Some(t) = self.tiles.borrow().get(&h.id) {
                     t.hold.set(0.0);
                     t.redraw_lamp();
@@ -1038,10 +1049,18 @@ impl Board {
         } else {
             match &*self.mode.borrow() {
                 Mode::Grid => "a-z run   ⇧ variants   / filter   tab next   esc close",
-                Mode::Log(_) => "y copy   e open   r run again   f follow   a acknowledge   esc back",
+                Mode::Log(_) => "",
                 Mode::Shelf => "↵ run   m man page   / filter   tab next   esc close",
             }
         };
+        if text.is_empty() {
+            if let Mode::Log(id) = &*self.mode.borrow() {
+                if let Some(v) = self.task(id) {
+                    self.footer.set_text(&format!("{}   t tail in a terminal", v.log));
+                    return;
+                }
+            }
+        }
         self.footer.set_text(text);
     }
 
@@ -1601,7 +1620,7 @@ impl Board {
         }
 
         // The filter box.
-        if self.search.has_focus() {
+        if self.search_focused() {
             match key {
                 gdk::Key::Escape => {
                     if self.search.text().is_empty() {
@@ -1716,12 +1735,12 @@ impl Board {
             let lower = c.to_ascii_lowercase();
             let target = self.hints.borrow().iter().find(|(h, _)| *h == lower).map(|(_, id)| id.clone());
             if let Some(id) = target {
-                if c.is_ascii_uppercase() {
+                if c.is_ascii_uppercase() || state.contains(gdk::ModifierType::SHIFT_MASK) {
                     self.open_menu(&id);
                     return Stop;
                 }
-                if self.hold.borrow().as_ref().is_some_and(|h| h.id == id) {
-                    return Stop; // key repeat while holding
+                if self.hold.borrow().as_ref().is_some_and(|h| h.id == id) || self.spent_key.get() == Some(lower) {
+                    return Stop; // key repeat while holding, or after the hold fired
                 }
                 let v = self.task(&id);
                 if let Some(v) = v {
@@ -1739,9 +1758,21 @@ impl Board {
 
     fn key_released(self: &Rc<Self>, key: gdk::Key) {
         let Some(c) = key.to_unicode().map(|c| c.to_ascii_lowercase()) else { return };
+        if self.spent_key.get() == Some(c) {
+            self.spent_key.set(None);
+            return;
+        }
         let id = self.hold.borrow().as_ref().filter(|h| h.key == Some(c)).map(|h| h.id.clone());
         if let Some(id) = id {
             self.cancel_hold(&id);
+        }
+    }
+
+    /// The entry's focus sits on its inner text widget, not the entry itself.
+    fn search_focused(&self) -> bool {
+        match GtkWindowExt::focus(&self.window) {
+            Some(w) => w == *self.search.upcast_ref::<gtk::Widget>() || w.is_ancestor(&self.search),
+            None => false,
         }
     }
 

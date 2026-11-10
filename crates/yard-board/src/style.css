@@ -24,6 +24,10 @@ window.switchyard {
   font-size: 13px;
 }
 
+/* Keep every child on the board's font, whatever the GTK theme says. */
+window.switchyard * { font-family: inherit; }
+window.switchyard list, window.switchyard row { color: @yard_fg; }
+
 .panel {
   background: @yard_panel;
   border: 1px solid @yard_border;
@@ -197,7 +201,11 @@ textview.log, textview.log text {
   padding: 4px 8px;
   background: transparent;
 }
-.menu row:selected, .menu row:hover { background: @yard_tile_hover; }
+.menu row:selected, .menu row:hover { background: @yard_tile_hover; color: @yard_fg; }
+.menu row:selected label { color: @yard_fg; }
+.menu row:selected label.seed { color: @yard_caution; }
+.menu row:selected label.danger { color: @yard_stop; }
+.menu row:selected label.dim { color: @yard_dim; }
 .menu .key {
   color: @yard_dim;
   border: 1px solid @yard_border;
@@ -218,9 +226,15 @@ textview.log, textview.log text {
 /* ---- shelf ---- */
 .shelf list { background: transparent; }
 .shelf row { padding: 3px 6px; border-radius: 6px; background: transparent; }
-.shelf row:selected, .shelf row:hover { background: @yard_tile_hover; }
+.shelf row:selected, .shelf row:hover { background: @yard_tile_hover; color: @yard_fg; }
+.shelf row:selected label { color: @yard_fg; }
+.shelf row:selected label.dim { color: @yard_dim; }
 .shelf .section { color: @yard_dim; font-size: 11px; padding: 8px 6px 2px 6px; }
 .shelf .name { min-width: 120px; }
 
 scrollbar { background: transparent; }
+scrolledwindow undershoot.top, scrolledwindow undershoot.bottom,
+scrolledwindow undershoot.left, scrolledwindow undershoot.right,
+scrolledwindow overshoot.top, scrolledwindow overshoot.bottom { background: none; }
+textview.log { padding: 8px 10px; }
 scrollbar slider { background: alpha(@yard_fg, 0.18); min-width: 4px; }
