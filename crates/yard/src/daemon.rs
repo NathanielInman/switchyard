@@ -1749,6 +1749,16 @@ impl Daemon {
             let r = self.rt(&rec.task);
             r.run = Some(rec.id);
             r.since = since;
+            // Enough to record the run when it ends; step times are lost.
+            r.meta = Some(RunMeta {
+                run: rec.id,
+                requested: rec.started,
+                started: rec.started,
+                launch_started: (rec.phase == RunPhase::Launch).then_some(since),
+                build_secs: rec.build_secs,
+                mem_cap: rec.handle.mem_cap,
+                ..Default::default()
+            });
             r.phase = match rec.phase {
                 RunPhase::Build => Phase::Building,
                 RunPhase::Launch => Phase::Running,
