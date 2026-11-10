@@ -24,6 +24,10 @@ CI builds and tests on Linux, macOS and Windows. A change to the daemon, CLI
 or runner works on all three, or degrades behind `cfg` with the reason in a
 comment.
 
+A workflow that commits (the release job's manifest update) authors the
+commit as `$GITHUB_ACTOR`, never `github-actions[bot]`: GitHub lists every
+author on `main` as a contributor.
+
 ## Isolation
 
 The machine you work on may run an installed Switchyard. Run development

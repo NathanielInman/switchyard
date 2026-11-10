@@ -94,8 +94,10 @@ jobs:
             "$(sum switchyard-aarch64-unknown-linux-gnu.tar.gz)" \
             "$(sum switchyard-x86_64-pc-windows-msvc.zip)" \
             "$src_sha"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Author the commit as whoever pushed the tag, never github-actions[bot],
+          # which would otherwise be listed as a repository contributor.
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR_ID+$GITHUB_ACTOR@users.noreply.github.com"
           git add Formula bucket packaging/aur
           git commit -m "chore(release): update package manifests for $GITHUB_REF_NAME" || exit 0
           git push origin main
