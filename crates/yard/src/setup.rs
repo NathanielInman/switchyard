@@ -283,6 +283,12 @@ fn install(no_start: bool) -> Result<()> {
         Ok(s) if s.success() => println!("Switchyard will start at login ({RUN_KEY}\\Switchyard)"),
         _ => println!("could not write the Run key; start {target} yourself at login"),
     }
+    if tray.exists() {
+        match shortcut(&tray) {
+            Ok(()) => println!("added Switchyard to the Start menu (pin it from there)"),
+            Err(e) => println!("could not add the Start menu shortcut: {e:#}"),
+        }
+    }
     if !no_start {
         let mut c = if tray.exists() {
             Command::new(&tray)
@@ -300,7 +306,37 @@ fn install(no_start: bool) -> Result<()> {
 #[cfg(windows)]
 fn remove() -> Result<()> {
     let _ = Command::new("reg").args(["delete", RUN_KEY, "/v", "Switchyard", "/f"]).status();
+    let _ = std::fs::remove_file(shortcut_path());
     let _ = yard_core::protocol::request(&yard_core::protocol::Request::Shutdown);
+    Ok(())
+}
+
+/// The Start menu entry, so Switchyard is in Start search and pins from there
+/// under its own name.
+#[cfg(windows)]
+fn shortcut_path() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| paths::home().join("AppData/Roaming"))
+        .join(r"Microsoft\Windows\Start Menu\Programs\Switchyard.lnk")
+}
+
+/// Writes the .lnk through PowerShell and WScript.Shell, which every Windows
+/// has, rather than a COM dependency.
+#[cfg(windows)]
+fn shortcut(tray: &Path) -> Result<()> {
+    let q = |p: &Path| format!("'{}'", p.display().to_string().replace('\'', "''"));
+    let lnk = shortcut_path();
+    let script = format!(
+        "$s = (New-Object -ComObject WScript.Shell).CreateShortcut({}); $s.TargetPath = {}; $s.WorkingDirectory = {}; $s.Description = 'Switchyard'; $s.Save()",
+        q(&lnk),
+        q(tray),
+        q(tray.parent().unwrap_or(tray)),
+    );
+    let mut c = Command::new("powershell");
+    c.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+    let out = c.output()?;
+    anyhow::ensure!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr).trim());
     Ok(())
 }
 

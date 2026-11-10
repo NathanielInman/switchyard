@@ -205,7 +205,7 @@ One `yard-tray` runs per user: it holds a lock on `tray.lock` in the runtime
 directory, and a second launch (a taskbar pin, the Start menu) asks the
 daemon to show the running one's board, then exits. On Windows the exe
 carries the signal icon and a version resource whose description is
-"Switchyard".
+"Switchyard", and `yard setup` adds a Start menu shortcut by that name.
 
 ## Siblings
 
