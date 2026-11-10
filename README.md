@@ -61,7 +61,7 @@
 ## Why
 
 Every developer desktop grows a pile of little launchers: a bar button that
-builds the game, a script that deploys the API, a keybind that rotates the
+builds the app, a script that deploys the API, a keybind that rotates the
 wallpaper. Each one starts as five lines of bash. A year later they are a
 drawer of icons with no memory of what happened, logs you open in a terminal
 and scroll by hand, and builds that can take the whole machine down if two of
@@ -94,9 +94,9 @@ cargo build && examples/demo/run-demo.sh
 
 <table>
   <tr>
-    <td width="33%" valign="top"><img src="docs/assets/screens/grid-shot.png" alt="The board: one heavy build on the main line with another waiting, two games running with memory sparklines, a failed build in red."><br><sub>One heavy build on the main line, the next one queued, two games running, a failure waiting to be read.</sub></td>
-    <td width="33%" valign="top"><img src="docs/assets/screens/log-shot.png" alt="The failed task's log with the C# error highlighted and action buttons."><br><sub>A failure opens on its first real error.</sub></td>
-    <td width="33%" valign="top"><img src="docs/assets/screens/menu-shot.png" alt="A task's variants menu: restart, a variant, recent seeds to replay, and built-in actions."><br><sub>Shift plus a letter: variants, replayable seeds, and everything else a task can do.</sub></td>
+    <td width="33%" valign="top"><img src="docs/assets/screens/grid-shot.png" alt="The board: one heavy build on the main line with another waiting, two dev servers running with memory sparklines, a failed build in red."><br><sub>One heavy build on the main line, the next one queued, two servers running, a failure waiting to be read.</sub></td>
+    <td width="33%" valign="top"><img src="docs/assets/screens/log-shot.png" alt="The failed task's log with the TypeScript error highlighted and action buttons."><br><sub>A failure opens on its first real error.</sub></td>
+    <td width="33%" valign="top"><img src="docs/assets/screens/menu-shot.png" alt="A task's variants menu: restart, a variant, recent branches to replay, and built-in actions."><br><sub>Shift plus a letter: variants, recent branches to replay, and everything else a task can do.</sub></td>
   </tr>
 </table>
 
