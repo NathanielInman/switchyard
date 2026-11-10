@@ -5,28 +5,28 @@
 <text x="622" y="30" font-size="11.5" fill="#6c7380" font-weight="400" text-anchor="end" >available 21 GB · keep 8 GB free</text>
 <g opacity="1"><rect x="14" y="44" width="612" height="42" rx="8" fill="#15171a" stroke="#262a2f"/>
 <g><circle cx="32" cy="65" r="10.799999999999999" fill="url(#glow-caution)"/><circle cx="32" cy="65" r="4.5" fill="#ebcb8b"><animate attributeName="opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite"/></circle></g>
-<text x="48" y="62" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >lanternfall build</text>
-<text x="48" y="77" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >dotnet + import · cap 12G</text>
+<text x="48" y="62" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >storefront build</text>
+<text x="48" y="77" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >install + next build · cap 12G</text>
 <text x="614" y="62" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >3.1 GB</text>
 <text x="614" y="77" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >0:48</text>
 </g>
 <g opacity="1"><rect x="14" y="91" width="612" height="42" rx="8" fill="#15171a" stroke="#262a2f"/>
 <circle cx="32" cy="112" r="3.7" fill="none" stroke="#ebcb8b" stroke-width="1.8"/>
-<text x="48" y="109" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >skiff assembleDebug</text>
+<text x="48" y="109" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >android assembleDebug</text>
 <text x="48" y="124" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >gradle · cap 12G · next</text>
 <text x="614" y="109" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >waiting</text>
 <text x="614" y="124" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >#1</text>
 </g>
 <g opacity="1"><rect x="14" y="138" width="612" height="42" rx="8" fill="#15171a" stroke="#262a2f"/>
 <circle cx="32" cy="159" r="3.7" fill="none" stroke="#ebcb8b" stroke-width="1.8"/>
-<text x="48" y="156" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >emberwright rebuild</text>
-<text x="48" y="171" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >dotnet + import · cap 10G</text>
+<text x="48" y="156" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >ledger-api rebuild</text>
+<text x="48" y="171" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >tsc + docker build · cap 10G</text>
 <text x="614" y="156" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >waiting</text>
 <text x="614" y="171" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >#2</text>
 </g>
 <g opacity="0.7"><rect x="14" y="185" width="612" height="42" rx="8" fill="#15171a" stroke="#262a2f"/>
 <g><circle cx="32" cy="206" r="10.799999999999999" fill="url(#glow-frost)"/><circle cx="32" cy="206" r="4.5" fill="#88c0d0"></circle></g>
-<text x="48" y="203" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >undertow</text>
+<text x="48" y="203" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >api-gateway</text>
 <text x="48" y="218" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >light · runs beside the main line</text>
 <text x="614" y="203" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >1.2 GB</text>
 <text x="614" y="218" font-size="11" fill="#6c7380" font-weight="400" text-anchor="end" >4:12</text>
@@ -37,7 +37,7 @@
 <rect x="245.4125" y="254" width="22.95" height="16" fill="#88c0d0"/>
 <rect x="472.0" y="251" width="2" height="22" fill="#bf616a"/>
 <text x="14" y="288" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >0</text>
-<text x="14" y="244" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >desktop 9 · lanternfall 3.1 · undertow 1.2 GB</text>
+<text x="14" y="244" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >desktop 9 · storefront 3.1 · api-gateway 1.2 GB</text>
 <text x="473.0" y="288" font-size="10.5" fill="#bf616a" font-weight="400" text-anchor="middle" >24 GB start limit</text>
 <text x="626" y="288" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="end" >32 GB</text>
 <text x="14" y="318" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >One heavy build at a time, started only when memory allows. Runs stay at normal priority.</text>

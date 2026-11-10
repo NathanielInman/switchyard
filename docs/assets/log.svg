@@ -2,19 +2,19 @@
 <defs><radialGradient id="glow-go"><stop offset="0" stop-color="#a3be8c" stop-opacity=".55"/><stop offset="1" stop-color="#a3be8c" stop-opacity="0"/></radialGradient><radialGradient id="glow-caution"><stop offset="0" stop-color="#ebcb8b" stop-opacity=".55"/><stop offset="1" stop-color="#ebcb8b" stop-opacity="0"/></radialGradient><radialGradient id="glow-stop"><stop offset="0" stop-color="#bf616a" stop-opacity=".55"/><stop offset="1" stop-color="#bf616a" stop-opacity="0"/></radialGradient><radialGradient id="glow-frost"><stop offset="0" stop-color="#88c0d0" stop-opacity=".55"/><stop offset="1" stop-color="#88c0d0" stop-opacity="0"/></radialGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".7"/></filter><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121418"/><stop offset="1" stop-color="#0c0d0f"/></linearGradient><radialGradient id="haze1" cx=".8" cy="0" r=".7"><stop offset="0" stop-color="#88c0d0" stop-opacity=".12"/><stop offset="1" stop-color="#88c0d0" stop-opacity="0"/></radialGradient><radialGradient id="haze2" cx=".05" cy="1" r=".6"><stop offset="0" stop-color="#b48ead" stop-opacity=".10"/><stop offset="1" stop-color="#b48ead" stop-opacity="0"/></radialGradient></defs>
 <rect width="640" height="330" rx="14" fill="#1e2024" stroke="#41464e"/>
 <g><circle cx="24" cy="26" r="10.799999999999999" fill="url(#glow-stop)"/><circle cx="24" cy="26" r="4.5" fill="#bf616a"></circle></g>
-<text x="38" y="31" font-size="14" fill="#c5c8c6" font-weight="700" text-anchor="start" >emberwright</text>
+<text x="38" y="31" font-size="14" fill="#c5c8c6" font-weight="700" text-anchor="start" >ledger-api</text>
 <text x="140" y="31" font-size="12" fill="#bf616a" font-weight="400" text-anchor="start" >failed 6m ago · step 1 of 2 · exit 1</text>
 <rect x="14" y="46" width="612" height="214" rx="8" fill="#0f1012" stroke="#262a2f"/>
-<text x="26" y="70" font-size="11.5" fill="#88c0d0" font-weight="400" text-anchor="start" >===== step 1/2: dotnet build =====</text>
-<text x="26" y="91" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >  Determining projects to restore...</text>
-<text x="26" y="112" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >  All projects are up-to-date for restore.</text>
+<text x="26" y="70" font-size="11.5" fill="#88c0d0" font-weight="400" text-anchor="start" >===== step 1/2: tsc =====</text>
+<text x="26" y="91" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >  $ tsc -p tsconfig.build.json</text>
+<text x="26" y="112" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >  Checking 412 files...</text>
 <rect x="15" y="119" width="610" height="21" fill="#bf616a" fill-opacity=".22"/>
-<text x="26" y="133" font-size="11.5" fill="#ffd5d9" font-weight="400" text-anchor="start" >Scripts/Combat/HitResolver.cs(212,17): error CS0103: The name &#x27;critRoll&#x27;</text>
+<text x="26" y="133" font-size="11.5" fill="#ffd5d9" font-weight="400" text-anchor="start" >src/billing/invoice.ts(212,17): error TS2339: Property &#x27;minimumCharge&#x27;</text>
 <rect x="15" y="140" width="610" height="21" fill="#bf616a" fill-opacity=".22"/>
-<text x="26" y="154" font-size="11.5" fill="#ffd5d9" font-weight="400" text-anchor="start" >  does not exist in the current context [Emberwright.csproj]</text>
-<text x="26" y="175" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >    0 Warning(s)</text>
-<text x="26" y="196" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >    1 Error(s)</text>
-<text x="26" y="217" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >Time Elapsed 00:00:07.41</text>
+<text x="26" y="154" font-size="11.5" fill="#ffd5d9" font-weight="400" text-anchor="start" >  does not exist on type &#x27;Plan&#x27;.</text>
+<text x="26" y="175" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" ></text>
+<text x="26" y="196" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >Found 1 error in src/billing/invoice.ts:212</text>
+<text x="26" y="217" font-size="11.5" fill="#9aa1aa" font-weight="400" text-anchor="start" >Done in 7.41s</text>
 <text x="26" y="238" font-size="11.5" fill="#88c0d0" font-weight="400" text-anchor="start" >===== exit 1 · step 1 of 2 · stopped =====</text>
 <rect x="14" y="276" width="104.4" height="24" rx="6" fill="#bf616a" stroke="#bf616a"/>
 <text x="23" y="292" font-size="11.5" fill="#1b1d20" font-weight="700" text-anchor="start" >y copy error</text>

@@ -105,7 +105,7 @@ cargo build && examples/demo/run-demo.sh
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/assets/log.svg" alt="A failed task's log with the C# error line highlighted and action buttons below."><br>
+      <img src="docs/assets/log.svg" alt="A failed task's log with the TypeScript error line highlighted and action buttons below."><br>
       <b>Logs that open on the error.</b> Built-in matchers for C#, Rust, Go,
       TypeScript, Gradle, Godot and Python find the first real failure. Press
       <kbd>y</kbd> to copy it with context, <kbd>e</kbd> to open the file at
@@ -125,11 +125,11 @@ cargo build && examples/demo/run-demo.sh
 | | |
 |---|---|
 | **Anchoring** | Reads the bar's position and your click from Hyprland's IPC, so the panel grows out of the icon on any edge. Falls back to a centered panel elsewhere. |
-| **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (replay that seed from yesterday), open the log, open in your editor, a terminal in the repo, copy the exact command. |
+| **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (rerun yesterday's branch), open the log, open in your editor, a terminal in the repo, copy the exact command. |
 | **Guarded tasks** | `confirm = "hold"` makes a task fire only after a 1.2 second hold. `confirm = "type"` asks you to type its name. For deploys that drop users. |
 | **Keyboard** | Open it with a keybind and every tile has a letter. Two keystrokes run anything. `/` filters across all tabs, ranked by how often and how recently you used each task. |
-| **Survives restarts** | Every phase runs in a systemd transient unit. Restarting your bar or the daemon never kills a running game or server, and the daemon picks running tasks back up. |
-| **Runtime watch rules** | Regexes on a running task's output raise throttled notifications, for errors that happen 20 minutes into a play session. |
+| **Survives restarts** | Every phase runs in a systemd transient unit. Restarting your bar or the daemon never kills a running app or dev server, and the daemon picks running tasks back up. |
+| **Runtime watch rules** | Regexes on a running task's output raise throttled notifications, for errors that only show up 20 minutes in. |
 | **The Shelf** | A dense list for tasks you rarely run, your installed CLI tools with their descriptions, and your compositor key binds. Stale tasks get a quiet suggestion to move there. |
 | **Waybar module** | `yard bar` streams the aggregate state as waybar JSON. No polling: one idle process instead of a script per button per second. |
 | **Script headers** | Any script with `# @yard.label ...` comments becomes a task without a manifest. |
@@ -211,25 +211,25 @@ or the classic syntax: `bind = SUPER, Y, exec, ~/.local/bin/yard toggle --center
 scan = ["~/code/*"]
 
 [[tab]]
-name = "Games"
-tags = ["games"]
+name = "Projects"
+tags = ["projects"]
 ```
 
 **4. Add a task.** In a repo, run `yard add` to scaffold a manifest from what it
 finds (Godot, Cargo, npm, Make), or write one:
 
 ```toml
-# ~/code/lanternfall/.yard.toml
-[task.lanternfall]
-tags  = ["games"]
+# ~/code/storefront/.yard.toml
+[task.storefront]
+tags  = ["projects"]
 heavy = true
-steps = ["dotnet build", "godot --headless --import"]
-run   = "godot --path . res://Scenes/Main/Boot.tscn"
+steps = ["pnpm install", "pnpm build"]
+run   = "pnpm start"
 pin   = 1
 
-[task.lanternfall.retry]
+[task.storefront.retry]
 step = 2
-on = "signal"        # Godot sometimes crashes on its way out of an import
+on = "signal"        # the bundler gets OOM-killed now and then on a cold cache
 attempts = 3
 ```
 
