@@ -74,6 +74,13 @@ pub enum Request {
         visible: bool,
     },
     Shelf,
+    /// Run history: records, the day-by-day episode feed and the week.
+    History {
+        #[serde(default)]
+        id: Option<String>,
+        #[serde(default)]
+        limit: Option<usize>,
+    },
     Reload,
     Star {
         id: String,
@@ -130,6 +137,15 @@ pub struct Reply {
     pub snapshot: Option<Box<Snapshot>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shelf: Option<ShelfData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history: Option<Box<HistoryData>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct HistoryData {
+    pub records: Vec<crate::history::RunRecord>,
+    pub days: Vec<crate::history::Day>,
+    pub week: crate::history::WeekStats,
 }
 
 impl Reply {

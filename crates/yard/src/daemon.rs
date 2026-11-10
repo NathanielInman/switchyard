@@ -15,6 +15,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::{Duration, Instant};
 use yard_core::config::Config;
 use yard_core::errors::{failing_section, find_first_error, ErrorHit};
+use yard_core::history::{GitRef, RunRecord, StepTime};
 use yard_core::manifest::{self, NotifyMode, Rerun, Step, TaskDef};
 use yard_core::model::*;
 use yard_core::paths;
@@ -94,6 +95,34 @@ struct TaskRt {
     mem_hist: VecDeque<u64>,
     cpu_prev: Option<(u64, Instant)>,
     capture_offset: u64,
+    /// When the current run was asked for (it may queue first).
+    requested: Option<f64>,
+    meta: Option<RunMeta>,
+}
+
+/// What the history needs to know about the run in flight.
+#[derive(Debug, Default)]
+struct RunMeta {
+    run: u64,
+    requested: f64,
+    started: f64,
+    launch_started: Option<f64>,
+    build_secs: f64,
+    cur: Option<(usize, String, f64, u32)>,
+    steps: Vec<StepTime>,
+    peak: Option<u64>,
+    mem_cap: Option<u64>,
+    params: BTreeMap<String, String>,
+    variant: Option<String>,
+    git: Option<GitRef>,
+}
+
+impl RunMeta {
+    fn close_step(&mut self, t: f64) {
+        if let Some((_, name, at, attempts)) = self.cur.take() {
+            self.steps.push(StepTime { name, secs: (t - at).max(0.0), attempts });
+        }
+    }
 }
 
 impl TaskRt {
@@ -135,6 +164,7 @@ pub struct Daemon {
     shelf: Option<(ShelfData, Instant)>,
     ticks: u64,
     dirty: bool,
+    history_rev: u64,
     base_env: BTreeMap<String, String>,
 }
 
@@ -297,6 +327,7 @@ impl Daemon {
             shelf: None,
             ticks: 0,
             dirty: true,
+            history_rev: 0,
             base_env: BTreeMap::new(),
         }
     }
@@ -445,6 +476,11 @@ impl Daemon {
                 }
                 Reply::ok()
             }
+            Request::History { id, limit } => Reply {
+                ok: true,
+                history: Some(Box::new(self.history_data(id.as_deref(), limit.unwrap_or(600)))),
+                ..Default::default()
+            },
             Request::Shelf => Reply {
                 ok: true,
                 shelf: Some(self.shelf_data()),
@@ -477,6 +513,16 @@ impl Daemon {
                 if let Some(rec) = self.runs.get(&run) {
                     let task = rec.task.clone();
                     let r = self.rt(&task);
+                    if let Some(m) = r.meta.as_mut() {
+                        let t = now();
+                        match m.cur.as_mut() {
+                            Some(c) if c.0 == index => c.3 = attempt,
+                            _ => {
+                                m.close_step(t);
+                                m.cur = Some((index, name.clone(), t, attempt));
+                            }
+                        }
+                    }
                     r.step = Some(StepInfo { index, total, name, attempt });
                     self.dirty = true;
                 }
@@ -635,6 +681,12 @@ impl Daemon {
             _ => {}
         }
         let has_steps = !self.steps_for(&def, &p).is_empty();
+        {
+            let r = self.rt(id);
+            if r.requested.is_none() {
+                r.requested = Some(now());
+            }
+        }
         if def.heavy && has_steps {
             if !self.queue.contains(&def.id) {
                 self.queue.push_back(def.id.clone());
@@ -818,6 +870,8 @@ impl Daemon {
             restart: None,
             gone_since: None,
         };
+        let git = self.git_ref(&def.dir);
+        let mem_cap = if heavy { Some(def.mem.unwrap_or(self.cfg.mainline.mem_bytes())) } else { def.mem };
         {
             let r = self.rt(&def.id);
             r.error = None;
@@ -825,6 +879,18 @@ impl Daemon {
             r.mem_hist.clear();
             r.capture_offset = log_len;
             r.pending = None;
+            let requested = r.requested.take().unwrap_or(at);
+            r.meta = Some(RunMeta {
+                run,
+                requested,
+                started: at,
+                launch_started: steps.is_empty().then_some(at),
+                params: params.clone(),
+                variant: variant.as_ref().map(|v| v.name.clone()),
+                git,
+                mem_cap,
+                ..Default::default()
+            });
         }
         self.launch_unit(def, rec);
     }
@@ -953,6 +1019,10 @@ impl Daemon {
             return;
         };
         let secs = now() - rec.started;
+        if let Some(m) = self.rt(&def.id).meta.as_mut() {
+            m.close_step(now());
+            m.build_secs = secs;
+        }
         if rec.stopping {
             self.cleanup_run(rec.id);
             self.stopped(&def, rec.restart.take());
@@ -960,6 +1030,11 @@ impl Daemon {
         }
         if code == 0 {
             self.history.record_duration(&def.id, secs);
+            if rec.run_cmd.is_some() {
+                if let Some(m) = self.rt(&def.id).meta.as_mut() {
+                    m.launch_started = Some(now());
+                }
+            }
             self.history_dirty = true;
             if rec.run_cmd.is_some() {
                 rec.phase = RunPhase::Launch;
@@ -1010,6 +1085,7 @@ impl Daemon {
             message: None,
         });
         self.history_dirty = true;
+        self.write_record(&def.id, Outcome::Stopped, 0, None, None);
         if let Some(p) = restart {
             let id = def.id.clone();
             let _ = self.request_run(&id, p);
@@ -1026,6 +1102,7 @@ impl Daemon {
         }
         self.history.task(&def.id).last = Some(LastRun { outcome: Outcome::Ok, at: now(), duration: secs, message: None });
         self.history_dirty = true;
+        self.write_record(&def.id, Outcome::Ok, 0, None, None);
         let notify = match def.notify {
             NotifyMode::Always => true,
             NotifyMode::Auto => build_only && secs >= 20.0,
@@ -1056,6 +1133,7 @@ impl Daemon {
         self.history.task(id).last = Some(LastRun { outcome: Outcome::Failed, at: now(), duration: 0.0, message: Some(message.clone()) });
         self.history_dirty = true;
         self.dirty = true;
+        self.write_record(id, Outcome::Failed, -1, Some(message.clone()), None);
         if notify {
             sys::notify(&format!("{label} failed"), &message, "critical");
         }
@@ -1102,6 +1180,7 @@ impl Daemon {
                 .collect::<Vec<_>>()
                 .join("\n")
         });
+        let hit_for_record = hit.clone();
         {
             let r = self.rt(&def.id);
             r.clear_live();
@@ -1109,6 +1188,7 @@ impl Daemon {
             r.message = Some(message.clone());
             r.error = hit;
         }
+        self.write_record(&def.id, Outcome::Failed, code, Some(message.clone()), hit_for_record);
         self.history.task(&def.id).last = Some(LastRun {
             outcome: Outcome::Failed,
             at: now(),
@@ -1119,6 +1199,86 @@ impl Daemon {
         if def.notify != NotifyMode::Never {
             let body = if body.is_empty() { message } else { format!("{message}\n{body}") };
             sys::notify(&format!("{} failed", def.label), &body, "critical");
+        }
+    }
+
+    fn git_ref(&self, dir: &Path) -> Option<GitRef> {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["log", "-1", "--format=%h%n%D"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&out.stdout);
+        let mut it = text.lines();
+        let sha = it.next()?.trim().to_string();
+        // "HEAD -> main, origin/main" names the branch after the arrow.
+        let refs = it.next().unwrap_or("");
+        let branch = refs
+            .split(", ")
+            .find_map(|r| r.strip_prefix("HEAD -> "))
+            .unwrap_or(if refs.starts_with("HEAD") { "detached" } else { "" })
+            .to_string();
+        let dirty = self.git.get(dir).map(|g| g.dirty).unwrap_or(0);
+        Some(GitRef { sha, branch, dirty })
+    }
+
+    /// Writes the finished run to the history.
+    fn write_record(&mut self, id: &str, outcome: Outcome, code: i32, message: Option<String>, error: Option<ErrorHit>) {
+        let Some(def) = self.def(id).cloned() else { return };
+        let t = now();
+        let Some(mut m) = self.rt(id).meta.take() else { return };
+        m.close_step(t);
+        let run_secs = m.launch_started.map(|s| (t - s).max(0.0)).unwrap_or(0.0);
+        let build_secs = if m.build_secs > 0.0 {
+            m.build_secs
+        } else if m.launch_started.is_none() {
+            (t - m.started).max(0.0)
+        } else {
+            0.0
+        };
+        let log = crate::runlog::archive_log(&def.log, id, m.run);
+        let rec = RunRecord {
+            run: m.run,
+            task: def.id.clone(),
+            label: def.label.clone(),
+            requested: m.requested,
+            started: m.started,
+            ended: t,
+            outcome,
+            code,
+            message,
+            error,
+            steps: m.steps,
+            queued_secs: (m.started - m.requested).max(0.0),
+            build_secs,
+            run_secs,
+            peak_mem: m.peak,
+            mem_cap: m.mem_cap,
+            params: m.params,
+            variant: m.variant,
+            git: m.git,
+            log,
+        };
+        crate::runlog::append(&rec);
+        self.history_rev += 1;
+        self.dirty = true;
+    }
+
+    fn history_data(&self, id: Option<&str>, limit: usize) -> yard_core::protocol::HistoryData {
+        use chrono::Offset;
+        yard_core::history::set_local_offset(chrono::Local::now().offset().fix().local_minus_utc() as i64);
+        let records = crate::runlog::read(id, limit);
+        let t = now();
+        yard_core::protocol::HistoryData {
+            days: yard_core::history::episodes(&records, t),
+            week: yard_core::history::week_stats(&records, t),
+            records,
         }
     }
 
@@ -1169,6 +1329,9 @@ impl Daemon {
             }
             let r = self.rt(&task);
             r.mem = usage.mem;
+            if let (Some(m), Some(mem)) = (r.meta.as_mut(), usage.mem) {
+                m.peak = Some(m.peak.unwrap_or(0).max(mem));
+            }
             r.cpu = usage.cpu;
             if sample {
                 if let Some(m) = usage.mem {
@@ -1376,6 +1539,7 @@ impl Daemon {
             board: self.cfg.board.clone(),
             has_editor: !self.cfg.editor.is_empty(),
             has_terminal: !self.cfg.terminal.is_empty(),
+            history_rev: self.history_rev,
             now: t,
         }
     }

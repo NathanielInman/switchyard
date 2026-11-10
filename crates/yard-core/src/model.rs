@@ -228,6 +228,9 @@ pub struct Snapshot {
     pub board: BoardConfig,
     pub has_editor: bool,
     pub has_terminal: bool,
+    /// Bumps whenever a run finishes, so a board knows to refresh history.
+    #[serde(default)]
+    pub history_rev: u64,
     /// Unix seconds on the daemon's clock, so clients can correct for skew.
     pub now: f64,
 }
