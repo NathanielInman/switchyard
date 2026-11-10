@@ -28,6 +28,16 @@ pub enum AckPhase {
     All,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenWhat {
+    Editor,
+    Terminal,
+    Log,
+    Tool,
+    Man,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Request {
@@ -79,6 +89,18 @@ pub enum Request {
     },
     Touch {
         id: String,
+    },
+    /// Opens something for the user: an editor, a terminal, a log or a tool.
+    Open {
+        what: OpenWhat,
+        #[serde(default)]
+        id: Option<String>,
+        #[serde(default)]
+        file: Option<String>,
+        #[serde(default)]
+        line: Option<u32>,
+        #[serde(default)]
+        tool: Option<String>,
     },
     /// Sent by the runner inside a task unit.
     Progress {
@@ -184,6 +206,16 @@ pub fn subscribe(kind: SubKind) -> Result<impl Iterator<Item = Result<Event>>> {
         let l = l?;
         Ok(serde_json::from_str::<Event>(&l)?)
     }))
+}
+
+/// Opens a subscription and returns the raw lines (the bar stream is plain
+/// waybar JSON, not tagged events).
+pub fn subscribe_raw(kind: SubKind) -> Result<impl Iterator<Item = std::io::Result<String>>> {
+    let mut s = connect()?;
+    let mut line = serde_json::to_string(&Request::Subscribe { kind })?;
+    line.push('\n');
+    s.write_all(line.as_bytes())?;
+    Ok(BufReader::new(s).lines())
 }
 
 #[cfg(test)]

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# @yard.label  rotate wallpaper
+# @yard.tags   desk
+# @yard.alt    echo banned the current wallpaper # ban current
+echo "next wallpaper"

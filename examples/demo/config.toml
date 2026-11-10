@@ -1,0 +1,45 @@
+# Demo config: fake projects that pretend to build and run.
+scan = ["$YARD_DEMO/projects/*"]
+scripts = ["$YARD_DEMO/scripts"]
+path_prepend = ["$YARD_DEMO/bin"]
+ok_flash = 6
+
+[mainline]
+min_free = "1G"
+mem = "12G"
+
+[[tab]]
+name = "Games"
+tags = ["games"]
+
+[[tab]]
+name = "Deploys"
+tags = ["deploy"]
+
+[[tab]]
+name = "Desk"
+tags = ["desk"]
+
+[shelf]
+tools = "none"
+binds = false
+
+[[shelf.tool]]
+name = "tokei"
+desc = "count lines of code per language"
+
+[[shelf.tool]]
+name = "gping"
+desc = "ping several hosts and compare them"
+
+[[shelf.tool]]
+name = "bandwhich"
+desc = "bandwidth use by process"
+
+[[shelf.tool]]
+name = "fselect"
+desc = "find files with SQL-like queries"
+
+[[shelf.tool]]
+name = "yazi"
+desc = "terminal file manager"

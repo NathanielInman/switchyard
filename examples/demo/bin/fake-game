@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Pretends to be a running game for the Switchyard demo.
+#   fake-game <name> [seed]
+name="$1"; seed="${2:-}"
+echo "Godot Engine v4.7.2.stable - https://godotengine.org"
+[ -n "$seed" ] && echo "Floor 1 generated with seed $seed"
+i=0
+while true; do
+  sleep 2
+  i=$((i + 1))
+  echo "[$name] frame batch $i ok"
+  if (( i == 4 )); then echo "SCRIPT ERROR: Invalid get index 'hp' (on base: 'Nil')."; echo "   at: _process (res://scripts/enemy.gd:57)"; fi
+done

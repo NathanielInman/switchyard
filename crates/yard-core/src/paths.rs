@@ -9,12 +9,47 @@ pub fn home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// Expands a leading `~` and `$HOME`/`${HOME}`.
+/// Replaces `$VAR` and `${VAR}` with environment values (unset becomes empty).
+pub fn expand_vars(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '$' && i + 1 < chars.len() {
+            let (name, next) = if chars[i + 1] == '{' {
+                match chars[i + 2..].iter().position(|c| *c == '}') {
+                    Some(end) => (chars[i + 2..i + 2 + end].iter().collect::<String>(), i + 3 + end),
+                    None => (String::new(), i),
+                }
+            } else {
+                let starts = chars[i + 1].is_ascii_alphabetic() || chars[i + 1] == '_';
+                let len = if starts {
+                    chars[i + 1..]
+                        .iter()
+                        .take_while(|c| c.is_ascii_alphanumeric() || **c == '_')
+                        .count()
+                } else {
+                    0
+                };
+                (chars[i + 1..i + 1 + len].iter().collect::<String>(), i + 1 + len)
+            };
+            if !name.is_empty() {
+                out.push_str(&std::env::var(&name).unwrap_or_default());
+                i = next;
+                continue;
+            }
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
+}
+
+/// Expands a leading `~` and environment variables.
 pub fn expand(s: &str) -> PathBuf {
     let s = s.trim();
     let h = home();
-    let hs = h.to_string_lossy();
-    let replaced = s.replace("${HOME}", &hs).replace("$HOME", &hs);
+    let replaced = expand_vars(s);
     if replaced == "~" {
         h
     } else if let Some(rest) = replaced.strip_prefix("~/") {
@@ -119,5 +154,9 @@ mod tests {
         assert_eq!(expand("/abs"), PathBuf::from("/abs"));
         assert_eq!(expand_in("rel", Path::new("/base")), PathBuf::from("/base/rel"));
         assert_eq!(tilde(&h.join("code")), "~/code");
+        std::env::set_var("YARD_TEST_VAR", "/v");
+        assert_eq!(expand("${YARD_TEST_VAR}/a"), PathBuf::from("/v/a"));
+        assert_eq!(expand("$YARD_TEST_VAR/b"), PathBuf::from("/v/b"));
+        assert_eq!(expand_vars("cost $5"), "cost $5");
     }
 }

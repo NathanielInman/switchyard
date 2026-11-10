@@ -1,0 +1,25 @@
+[defaults]
+tags = ["deploy"]
+
+[task.meridian-upgrade]
+label = "meridian upgrade"
+description = "rolling, no downtime"
+steps = ["fake-build 3", "echo deployed v2.14.1"]
+check = "echo health ok"
+
+[task.meridian-restart]
+label = "meridian restart"
+description = "drops connected players"
+confirm = "hold"
+steps = ["fake-build 2"]
+
+[task.meridian-restore]
+label = "restore backup"
+description = "rewinds the world"
+confirm = "type"
+steps = ["fake-build 2"]
+
+[task.meridian-logs]
+label = "meridian logs"
+description = "tail the server"
+run = "while true; do echo \"$(date +%T) tick\"; sleep 3; done"

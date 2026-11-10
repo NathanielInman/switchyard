@@ -1,0 +1,7 @@
+[task.skiff]
+description = "APK to emulator"
+tags = ["games", "work"]
+pin = 7
+heavy = true
+steps = [{ name = "assembleDebug", cmd = "fake-build 8" }]
+errors = ["gradle"]
