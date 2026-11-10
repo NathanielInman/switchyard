@@ -14,6 +14,8 @@ mod anim;
 #[cfg(target_os = "linux")]
 mod board;
 #[cfg(target_os = "linux")]
+mod historyview;
+#[cfg(target_os = "linux")]
 mod logview;
 #[cfg(target_os = "linux")]
 mod stage;

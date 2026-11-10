@@ -143,6 +143,9 @@ pub struct Reply {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct HistoryData {
+    /// The daemon's offset from UTC in seconds, so clients agree on "today".
+    #[serde(default)]
+    pub offset: i64,
     pub records: Vec<crate::history::RunRecord>,
     pub days: Vec<crate::history::Day>,
     pub week: crate::history::WeekStats,

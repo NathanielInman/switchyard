@@ -182,6 +182,15 @@ fn civil(days: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
+/// "today", "yday", "mon": a short day name for chart labels.
+pub fn short_day(t: f64, now: f64) -> String {
+    match day_index(now) - day_index(t) {
+        0 => "today".into(),
+        1 => "yday".into(),
+        _ => ["thu", "fri", "sat", "sun", "mon", "tue", "wed"][day_index(t).rem_euclid(7) as usize].into(),
+    }
+}
+
 fn day_index(t: f64) -> i64 {
     (t as i64 + LOCAL_OFFSET.load(std::sync::atomic::Ordering::Relaxed)).div_euclid(86400)
 }

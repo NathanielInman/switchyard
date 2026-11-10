@@ -238,3 +238,28 @@ scrolledwindow undershoot.left, scrolledwindow undershoot.right,
 scrolledwindow overshoot.top, scrolledwindow overshoot.bottom { background: none; }
 textview.log { padding: 8px 10px; }
 scrollbar slider { background: alpha(@yard_fg, 0.18); min-width: 4px; }
+
+/* ---- history ---- */
+.hist-stat { background: @yard_tile; border-radius: 10px; padding: 8px 11px; }
+.hist-stat .v { font-weight: bold; font-size: 15px; color: @yard_fg; }
+.hist-stat .v.warn { color: @yard_caution; }
+.hist-stat .k { color: @yard_dim; font-size: 10.5px; }
+.hist-day { color: @yard_dim; font-size: 10.5px; letter-spacing: 2px; margin: 10px 4px 2px 4px; }
+.hist-row { padding: 6px 8px; border-radius: 8px; transition: background-color 150ms; }
+.hist-row:hover, .hist-row.selected { background: @yard_tile; }
+.hist-row .who { font-weight: bold; }
+.hist-chip { border: 1px solid @yard_border; border-radius: 5px; padding: 0 5px; font-size: 10.5px; }
+.hist-chip.warn { color: @yard_caution; border-color: alpha(@yard_caution, 0.45); }
+.hist-chip.ok { color: @yard_go; border-color: alpha(@yard_go, 0.45); }
+.hist-chip.bad { color: @yard_stop; border-color: alpha(@yard_stop, 0.5); }
+.hist-name { font-weight: bold; font-size: 14px; }
+.hist-callout { color: @yard_caution; font-size: 11.5px; }
+.hist-card { background: @yard_tile; border-radius: 11px; padding: 11px 13px; }
+.hist-card .who { font-weight: bold; }
+.hist-err { background: alpha(@yard_stop, 0.18); color: #ffd5d9; border-radius: 6px; padding: 5px 8px; font-size: 11.5px; }
+.hist-fact .b { font-size: 12.5px; }
+.hist-fact .dim { font-size: 11px; }
+button.hist-btn, .actions button.frost {
+  background: @yard_frost; color: #1b1d20; border: none; border-radius: 7px; padding: 2px 10px; min-height: 0; font-weight: bold; box-shadow: none;
+}
+button.hist-btn { background: transparent; color: @yard_fg; border: 1px solid @yard_border; font-weight: normal; }

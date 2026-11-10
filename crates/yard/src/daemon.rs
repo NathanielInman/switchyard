@@ -1690,10 +1690,15 @@ impl Daemon {
                 spawn(argv, &dir)
             }
             OpenWhat::Log => {
-                let Some(def) = def else { return Reply::err("which task?") };
+                // A past run's own log when one is named, else the live one.
+                let path = match (&file, &def) {
+                    (Some(f), _) => f.clone(),
+                    (None, Some(d)) => d.log.to_string_lossy().to_string(),
+                    (None, None) => return Reply::err("which task?"),
+                };
                 let mut argv = term;
                 argv.extend(["tail", "-n", "+1", "-f"].map(String::from));
-                argv.push(def.log.to_string_lossy().to_string());
+                argv.push(path);
                 spawn(argv, &dir)
             }
             OpenWhat::Tool | OpenWhat::Man => {

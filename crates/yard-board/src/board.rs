@@ -22,6 +22,7 @@ pub enum Msg {
     Disconnected,
     Reply(Reply),
     Shelf(ShelfData),
+    History(yard_core::protocol::HistoryData),
 }
 
 thread_local! {
@@ -42,6 +43,8 @@ enum Mode {
     Grid,
     Log(String),
     Shelf,
+    History,
+    Strip(String),
 }
 
 #[derive(Clone)]
@@ -110,6 +113,8 @@ pub struct Board {
     empty: gtk::Label,
     log: LogView,
     shelf_list: gtk::ListBox,
+    history: Rc<crate::historyview::HistoryView>,
+    history_rev: Cell<u64>,
     recent: gtk::Box,
     footer: gtk::Label,
     menu_holder: gtk::Box,
@@ -265,6 +270,9 @@ impl Board {
         stack.add_named(&grid_scroller, Some("grid"));
         stack.add_named(&log.root, Some("log"));
         stack.add_named(&shelf_scroller, Some("shelf"));
+        let history = crate::historyview::HistoryView::new();
+        stack.add_named(&history.feed_root, Some("history"));
+        stack.add_named(&history.strip_root, Some("strip"));
 
         let recent = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         recent.add_css_class("recent");
@@ -315,6 +323,8 @@ impl Board {
             empty,
             log,
             shelf_list,
+            history,
+            history_rev: Cell::new(u64::MAX),
             recent,
             footer,
             menu_holder,
@@ -340,6 +350,12 @@ impl Board {
             gauge_frac: Cell::new(0.0),
         });
         b.wire();
+        let w = Rc::downgrade(&b);
+        b.history.connect_action(move |a| {
+            if let Some(b) = w.upgrade() {
+                b.history_action(a);
+            }
+        });
         b
     }
 
@@ -457,6 +473,12 @@ impl Board {
                     self.toast(&m, false);
                 }
             }
+            Msg::History(d) => {
+                self.history.set_data(d);
+                if let Mode::Strip(task) = self.mode.borrow().clone() {
+                    let _ = task;
+                }
+            }
             Msg::Shelf(d) => {
                 *self.shelf.borrow_mut() = Some(d);
                 if *self.mode.borrow() == Mode::Shelf {
@@ -510,8 +532,60 @@ impl Board {
             let ids: Vec<&str> = s.tasks.iter().map(|t| t.id.as_str()).collect();
             self.tiles.borrow_mut().retain(|k, _| ids.contains(&k.as_str()));
         }
+        let rev = s.history_rev;
         *self.snap.borrow_mut() = Some(s);
+        if rev != self.history_rev.get() && matches!(*self.mode.borrow(), Mode::History | Mode::Strip(_)) {
+            self.history_rev.set(rev);
+            self.fetch_history();
+        }
         self.render(false);
+    }
+
+    fn fetch_history(&self) {
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            if let Ok(r) = yard_core::protocol::request(&Request::History { id: None, limit: Some(800) }) {
+                if let Some(h) = r.history {
+                    let _ = tx.send_blocking(Msg::History(*h));
+                }
+            }
+        });
+    }
+
+    fn open_history(self: &Rc<Self>) {
+        self.set_mode(Mode::History);
+        self.history.reset_scroll();
+        if let Some(s) = self.snap.borrow().as_ref() {
+            self.history_rev.set(s.history_rev);
+        }
+        self.fetch_history();
+    }
+
+    fn open_strip(self: &Rc<Self>, task: &str) {
+        self.history.open_strip(task);
+        self.set_mode(Mode::Strip(task.to_string()));
+        self.render_footer();
+    }
+
+    fn history_action(self: &Rc<Self>, a: crate::historyview::Action) {
+        use crate::historyview::Action;
+        match a {
+            Action::OpenStrip(task) => self.open_strip(&task),
+            Action::Replay(r) => {
+                let confirm = self.task(&r.task).map(|v| v.confirm).unwrap_or_default();
+                self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
+            }
+            Action::OpenLog(r) => {
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None });
+                self.hide();
+            }
+            Action::CopyError(r) => {
+                if let Some(e) = &r.error {
+                    self.window.clipboard().set_text(&e.text);
+                    self.toast("Copied the error", false);
+                }
+            }
+        }
     }
 
     fn task(&self, id: &str) -> Option<TaskView> {
@@ -704,6 +778,7 @@ impl Board {
         match self.mode.borrow().clone() {
             Mode::Grid => self.render_grid(animate),
             Mode::Shelf => self.render_shelf(),
+            Mode::History | Mode::Strip(_) => {}
             Mode::Log(id) => {
                 if let Some(v) = self.task(&id) {
                     self.log.update_head(&v);
@@ -739,8 +814,13 @@ impl Board {
             .collect();
         let shelf_count = s.tasks.iter().filter(|t| t.shelf || t.stale).count()
             + self.shelf.borrow().as_ref().map(|d| d.tools.len()).unwrap_or(0);
+        entries.push(("History".into(), 0));
         entries.push(("Shelf".into(), shelf_count));
-        let active = if *self.mode.borrow() == Mode::Shelf { entries.len() - 1 } else { self.tab.get() };
+        let active = match &*self.mode.borrow() {
+            Mode::Shelf => entries.len() - 1,
+            Mode::History | Mode::Strip(_) => entries.len() - 2,
+            _ => self.tab.get(),
+        };
         for (i, (name, n)) in entries.into_iter().enumerate() {
             let b = gtk::Button::new();
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -768,7 +848,9 @@ impl Board {
     fn select_tab(self: &Rc<Self>, i: usize) {
         let n = self.tabs().len();
         self.close_menu();
-        if i >= n {
+        if i == n {
+            self.open_history();
+        } else if i > n {
             self.set_mode(Mode::Shelf);
             if self.shelf.borrow().is_none() {
                 let tx = self.tx.clone();
@@ -1060,6 +1142,8 @@ impl Board {
                 Mode::Grid => "a-z run   ⇧ variants   / filter   tab next   esc close",
                 Mode::Log(_) => "",
                 Mode::Shelf => "↵ run   m man page   / filter   tab next   esc close",
+                Mode::History => "↑↓ move   ↵ expand   o open runs   tab next   esc close",
+                Mode::Strip(_) => "←→ runs   r replay   l log   y copy error   esc back",
             }
         };
         if text.is_empty() {
@@ -1089,6 +1173,8 @@ impl Board {
             Mode::Grid => "grid",
             Mode::Log(_) => "log",
             Mode::Shelf => "shelf",
+            Mode::History => "history",
+            Mode::Strip(_) => "strip",
         };
         *self.mode.borrow_mut() = m;
         self.stack.set_visible_child_name(page);
@@ -1584,6 +1670,8 @@ impl Board {
                 Mode::Grid => "grid".to_string(),
                 Mode::Log(id) => format!("log {id}"),
                 Mode::Shelf => "shelf".to_string(),
+                Mode::History => "history".to_string(),
+                Mode::Strip(id) => format!("strip {id}"),
             };
             eprintln!(
                 "key {:?} state {:?} mode {mode} menu {} search {} page {:?}",
@@ -1686,6 +1774,49 @@ impl Board {
             return Stop;
         }
 
+        if let Mode::Strip(_) = mode {
+            match key {
+                gdk::Key::Escape | gdk::Key::BackSpace => {
+                    self.set_mode(Mode::History);
+                    self.render_footer();
+                }
+                gdk::Key::Left | gdk::Key::h => self.history.step_run(-1),
+                gdk::Key::Right | gdk::Key::l if key == gdk::Key::Right => self.history.step_run(1),
+                _ => {
+                    if let Some(r) = self.history.selected_run() {
+                        use crate::historyview::Action;
+                        match ch {
+                            Some('r') => self.history_action(Action::Replay(r)),
+                            Some('l') => self.history_action(Action::OpenLog(r)),
+                            Some('y') => self.history_action(Action::CopyError(r)),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            return Stop;
+        }
+        if mode == Mode::History && !esc {
+            match key {
+                gdk::Key::Down | gdk::Key::j => self.history.move_sel(1),
+                gdk::Key::Up | gdk::Key::k => self.history.move_sel(-1),
+                gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space => {
+                    let i = self.history.selected.get();
+                    self.history.toggle(i);
+                }
+                gdk::Key::o | gdk::Key::Right => {
+                    if let Some(t) = self.history.selected_task() {
+                        self.open_strip(&t);
+                    }
+                }
+                gdk::Key::Tab | gdk::Key::ISO_Left_Tab => {}
+                _ => return Stop,
+            }
+            if !matches!(key, gdk::Key::Tab | gdk::Key::ISO_Left_Tab) {
+                return Stop;
+            }
+        }
+
         if esc {
             if !self.search.text().is_empty() {
                 self.search.set_text("");
@@ -1696,8 +1827,12 @@ impl Board {
         }
         match key {
             gdk::Key::Tab | gdk::Key::ISO_Left_Tab => {
-                let n = self.tabs().len() + 1;
-                let cur = if mode == Mode::Shelf { n - 1 } else { self.tab.get() };
+                let n = self.tabs().len() + 2;
+                let cur = match mode {
+                    Mode::Shelf => n - 1,
+                    Mode::History | Mode::Strip(_) => n - 2,
+                    _ => self.tab.get(),
+                };
                 let back = key == gdk::Key::ISO_Left_Tab || state.contains(gdk::ModifierType::SHIFT_MASK);
                 let next = if back { (cur + n - 1) % n } else { (cur + 1) % n };
                 self.select_tab(next);
