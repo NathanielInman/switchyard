@@ -287,6 +287,13 @@ yard doctor                check the setup
 yard daemon                run the daemon (the user unit does this)
 ```
 
+### For coding agents
+
+[`skills/switchyard`](skills/switchyard/SKILL.md) is an agent skill that writes
+and fixes `.yard.toml` manifests and chases down a failed task from its log.
+Copy the folder into your agent's skills directory, then ask it to add
+Switchyard tasks to a repo.
+
 ## Keyboard
 
 | Key | In the grid | In a log |
