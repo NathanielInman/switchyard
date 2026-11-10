@@ -170,6 +170,21 @@ impl Spring {
         *imp.on_done.borrow_mut() = Some(Box::new(done));
         imp.closing.set(Some((0, imp.progress.get())));
         self.ensure_ticking();
+        // Without frame callbacks (outputs asleep, surface occluded) the
+        // ease never runs; finish anyway so the board always closes.
+        let weak = self.downgrade();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(400), move || {
+            let Some(w) = weak.upgrade() else { return };
+            let imp = w.imp();
+            let pending = imp.on_done.borrow_mut().take();
+            if let Some(done) = pending {
+                imp.closing.set(None);
+                imp.progress.set(1.0);
+                imp.velocity.set(0.0);
+                imp.target.set(1.0);
+                done();
+            }
+        });
     }
 
     pub fn settle(&self) {
