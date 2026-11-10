@@ -1,0 +1,226 @@
+/* Switchyard board default theme. Override any of it in
+   ~/.config/switchyard/style.css; redefine the @define-color tokens to
+   recolor everything at once. */
+
+@define-color yard_panel rgba(30, 32, 36, 0.96);
+@define-color yard_border #41464e;
+@define-color yard_fg #c5c8c6;
+@define-color yard_dim #7c838e;
+@define-color yard_tile #2a2d32;
+@define-color yard_tile_hover #33373d;
+@define-color yard_well #15171a;
+@define-color yard_accent #88c0d0;
+@define-color yard_go #a3be8c;
+@define-color yard_caution #ebcb8b;
+@define-color yard_stop #bf616a;
+@define-color yard_frost #88c0d0;
+@define-color yard_violet #b48ead;
+@define-color yard_idle #555b64;
+
+window.switchyard {
+  background: transparent;
+  color: @yard_fg;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.panel {
+  background: @yard_panel;
+  border: 1px solid @yard_border;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  padding: 12px 12px 0 12px;
+}
+
+.dim { color: @yard_dim; }
+
+/* ---- header ---- */
+.tabs button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: @yard_dim;
+  padding: 4px 10px;
+  border-radius: 8px;
+  min-height: 0;
+  transition: background-color 200ms, color 200ms;
+}
+.tabs button:hover { color: @yard_fg; }
+.tabs button.active { background: @yard_tile_hover; color: @yard_fg; }
+.tabs button .count { color: @yard_dim; margin-left: 5px; }
+
+entry.search {
+  background: transparent;
+  border: 1px solid @yard_border;
+  border-radius: 8px;
+  color: @yard_fg;
+  min-height: 26px;
+  padding: 0 8px;
+  box-shadow: none;
+  outline: none;
+}
+entry.search:focus-within { border-color: @yard_accent; }
+
+/* ---- strips ---- */
+.mainline {
+  background: alpha(@yard_caution, 0.07);
+  border: 1px solid alpha(@yard_caution, 0.25);
+  border-radius: 9px;
+  padding: 6px 10px;
+}
+.mainline.memory { background: alpha(@yard_stop, 0.08); border-color: alpha(@yard_stop, 0.35); }
+.gauge { color: @yard_caution; }
+.gauge.track { color: #3a3e45; }
+
+.problems {
+  color: @yard_caution;
+  background: alpha(@yard_caution, 0.06);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+/* ---- tiles ---- */
+.tile {
+  background: @yard_tile;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 9px 10px 9px 10px;
+  transition: background-color 250ms, border-color 350ms;
+}
+.tile:hover { background: @yard_tile_hover; }
+.tile.selected { border-color: @yard_accent; }
+.tile.failed, .tile.seen {
+  border-color: alpha(@yard_stop, 0.55);
+  background: shade(mix(@yard_tile, @yard_stop, 0.10), 1.0);
+}
+.tile.building { border-color: alpha(@yard_caution, 0.40); }
+.tile.queued, .tile.waiting { border-color: alpha(@yard_caution, 0.22); }
+.tile.running { border-color: alpha(@yard_frost, 0.40); }
+.tile.ok { border-color: alpha(@yard_go, 0.45); }
+.tile.stale { opacity: 0.7; }
+.tile .name { font-weight: bold; font-size: 13.5px; }
+.tile .sub { color: @yard_dim; font-size: 11px; }
+.tile .status { font-size: 11.5px; color: @yard_dim; }
+.tile.failed .status, .tile.seen .status { color: @yard_stop; }
+.tile.building .status, .tile.queued .status, .tile.waiting .status { color: @yard_caution; }
+.tile.running .status { color: @yard_frost; }
+.tile.ok .status { color: @yard_go; }
+.tile .hint {
+  background: @yard_caution;
+  color: #1b1d20;
+  font-weight: bold;
+  font-size: 10.5px;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.tile .badge {
+  border: 1px solid @yard_border;
+  border-radius: 5px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  color: @yard_dim;
+}
+.tile .badge.warn { color: @yard_caution; border-color: alpha(@yard_caution, 0.5); }
+.tile .badge.ok { color: @yard_go; border-color: alpha(@yard_go, 0.5); }
+
+.lamp { color: @yard_idle; }
+.lamp.failed, .lamp.seen { color: @yard_stop; }
+.lamp.building, .lamp.queued, .lamp.waiting { color: @yard_caution; }
+.lamp.running { color: @yard_frost; }
+.lamp.ok { color: @yard_go; }
+.progress { color: @yard_caution; }
+.spark { color: @yard_caution; }
+.spark.running { color: @yard_frost; }
+.ring { color: @yard_stop; }
+
+/* ---- recent + footer ---- */
+.recent button {
+  background: transparent;
+  border: 1px solid @yard_border;
+  border-radius: 999px;
+  padding: 1px 10px;
+  min-height: 0;
+  color: @yard_fg;
+  box-shadow: none;
+  font-size: 11.5px;
+}
+.recent button:hover { border-color: @yard_accent; }
+.footer {
+  border-top: 1px solid @yard_border;
+  padding: 7px 4px 9px 4px;
+  font-size: 11px;
+  color: @yard_dim;
+}
+.footer .key { color: @yard_fg; }
+.toast { color: @yard_fg; }
+.toast.error { color: @yard_stop; }
+
+/* ---- log ---- */
+.loghead .name { font-weight: bold; font-size: 14px; }
+.loghead .message { color: @yard_stop; }
+textview.log, textview.log text {
+  background: #0f1012;
+  color: #9aa1aa;
+  font-size: 11.5px;
+}
+.logwell {
+  border: 1px solid #262a2f;
+  border-radius: 8px;
+  background: #0f1012;
+}
+.actions button {
+  background: transparent;
+  border: 1px solid @yard_border;
+  border-radius: 7px;
+  padding: 2px 10px;
+  min-height: 0;
+  color: @yard_fg;
+  box-shadow: none;
+  font-size: 11.5px;
+}
+.actions button:hover { border-color: @yard_accent; }
+.actions button.primary { background: @yard_stop; border-color: @yard_stop; color: #1b1d20; font-weight: bold; }
+.actions button.active { border-color: @yard_frost; color: @yard_frost; }
+
+/* ---- menus ---- */
+.menu {
+  background: #1f2226;
+  border: 1px solid @yard_border;
+  border-radius: 11px;
+  padding: 6px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+.menu .title { font-weight: bold; padding: 2px 8px 6px 8px; }
+.menu list { background: transparent; }
+.menu row {
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: transparent;
+}
+.menu row:selected, .menu row:hover { background: @yard_tile_hover; }
+.menu .key {
+  color: @yard_dim;
+  border: 1px solid @yard_border;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+.menu .seed { color: @yard_caution; }
+.menu .danger { color: @yard_stop; }
+.menu entry {
+  background: @yard_well;
+  border: 1px solid @yard_accent;
+  border-radius: 7px;
+  color: @yard_fg;
+  margin: 4px;
+}
+
+/* ---- shelf ---- */
+.shelf list { background: transparent; }
+.shelf row { padding: 3px 6px; border-radius: 6px; background: transparent; }
+.shelf row:selected, .shelf row:hover { background: @yard_tile_hover; }
+.shelf .section { color: @yard_dim; font-size: 11px; padding: 8px 6px 2px 6px; }
+.shelf .name { min-width: 120px; }
+
+scrollbar { background: transparent; }
+scrollbar slider { background: alpha(@yard_fg, 0.18); min-width: 4px; }
