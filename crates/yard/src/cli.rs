@@ -23,10 +23,7 @@ fn ensure_daemon() -> Result<()> {
     if yard_core::protocol::connect().is_ok() {
         return Ok(());
     }
-    let has_unit = sys::systemctl_user(&["cat", "switchyard.service"]).is_some_and(|t| !t.is_empty());
-    if has_unit {
-        let _ = Command::new("systemctl").args(["--user", "start", "switchyard.service"]).status();
-    } else {
+    if !crate::setup::start_service() {
         let me = std::env::current_exe()?;
         let mut c = Command::new(me);
         c.arg("daemon");
@@ -36,13 +33,7 @@ fn ensure_daemon() -> Result<()> {
                 c.stdout(f).stderr(f2);
             }
         }
-        unsafe {
-            use std::os::unix::process::CommandExt;
-            c.pre_exec(|| {
-                libc::setsid();
-                Ok(())
-            });
-        }
+        sys::detach(&mut c);
         sys::spawn_detached_keep_output(c)?;
     }
     let start = Instant::now();
@@ -310,22 +301,32 @@ pub fn doctor() -> Result<i32> {
     let mut all = true;
     let (cfg, problems) = Config::load();
     all &= check(problems.is_empty(), &format!("config {}", paths::tilde(&paths::config_file())), &problems.iter().map(|p| p.message.clone()).collect::<Vec<_>>().join("; "));
-    let which = |b: &str| Command::new("sh").args(["-c", &format!("command -v {b}")]).output().is_ok_and(|o| o.status.success());
-    all &= check(which("systemd-run"), "systemd-run", "Switchyard runs every task as a systemd user unit");
-    all &= check(sys::systemctl_user(&["is-system-running"]).is_some(), "systemd user manager", "is `systemctl --user` working?");
+    let which = |b: &str| crate::supervise::which(b).is_some();
+    let backend = crate::supervise::pick();
+    check(true, &format!("task backend: {}", backend.name()), "");
+    #[cfg(target_os = "linux")]
+    if backend.name() != "systemd" {
+        println!("     (no systemd user manager: memory caps are enforced by the daemon, not the kernel)");
+    }
+    let shell = if cfg.shell.is_empty() { crate::supervise::default_shell() } else { cfg.shell.clone() };
+    check(which(&shell[0]), &format!("shell: {}", shell.join(" ")), "set `shell` in the config");
+    #[cfg(target_os = "linux")]
     check(which("notify-send"), "notify-send", "install libnotify for failure notifications");
     check(which("git"), "git", "repo badges need git");
-    let board = sys::sibling_binary("yard-board");
-    all &= check(board.exists() || which("yard-board"), "yard-board", "build and install the board binary");
+    let board_name = if cfg!(target_os = "linux") { "yard-board" } else { "yard-tray" };
+    let board = sys::sibling_binary(board_name);
+    all &= check(board.exists() || which(board_name), board_name, "install the board next to yard");
     let hypr = yard_core::hypr::socket().is_some();
-    check(hypr, "Hyprland IPC", "not under Hyprland: the board opens centered");
+    if cfg!(target_os = "linux") {
+        check(hypr, "Hyprland IPC", "not under Hyprland: the board opens centered");
+    }
     if hypr {
         let a = yard_core::hypr::anchor(&cfg.board.bar_namespace, false);
         let edge = a.as_ref().map(|a| format!("{:?}", a.edge).to_lowercase()).unwrap_or_default();
         check(a.is_some(), &format!("bar \"{}\" found, {edge} edge", cfg.board.bar_namespace), "set board.bar_namespace to your bar's layer namespace");
     }
     let daemon = request(&Request::Ping);
-    all &= check(daemon.is_ok(), "daemon", "start it with `systemctl --user start switchyard` or `yard daemon`");
+    all &= check(daemon.is_ok(), "daemon", "run `yard setup`, or `yard daemon` in a terminal");
     if daemon.is_ok() {
         let snap = snapshot()?;
         check(!snap.tasks.is_empty(), &format!("{} tasks", snap.tasks.len()), "add `scan` paths or manifests");

@@ -6,8 +6,7 @@ use anyhow::{Context, Result};
 use regex::Regex;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
-use std::os::unix::process::ExitStatusExt;
-use std::process::{Command, ExitStatus, Stdio};
+use std::process::{ExitStatus, Stdio};
 use std::time::Instant;
 use yard_core::manifest::RetryOn;
 use yard_core::model::duration;
@@ -25,14 +24,22 @@ fn open_log(spec: &RunSpec) -> Result<File> {
     Ok(OpenOptions::new().create(true).append(true).open(&spec.log)?)
 }
 
+#[cfg(unix)]
 fn code_of(status: ExitStatus) -> i32 {
+    use std::os::unix::process::ExitStatusExt;
     match status.code() {
         Some(c) => c,
         None => 128 + status.signal().unwrap_or(0),
     }
 }
 
+#[cfg(not(unix))]
+fn code_of(status: ExitStatus) -> i32 {
+    status.code().unwrap_or(1)
+}
+
 /// True when this unit's cgroup has seen an out-of-memory kill.
+#[cfg(target_os = "linux")]
 fn oom_killed() -> bool {
     let Ok(cg) = std::fs::read_to_string("/proc/self/cgroup") else { return false };
     let Some(path) = cg.lines().find_map(|l| l.strip_prefix("0::")) else { return false };
@@ -46,6 +53,12 @@ fn oom_killed() -> bool {
             })
         })
         .unwrap_or(false)
+}
+
+/// Elsewhere the supervisor knows (it enforced the cap itself).
+#[cfg(not(target_os = "linux"))]
+fn oom_killed() -> bool {
+    false
 }
 
 fn finish(spec: &RunSpec, phase: &str, code: i32, oom: bool) {
@@ -78,9 +91,8 @@ pub fn build(path: &str) -> Result<i32> {
             });
             let out = log.try_clone()?;
             let err = log.try_clone()?;
-            let status = Command::new("bash")
-                .arg("-c")
-                .arg(&step.cmd)
+            let status = spec
+                .shell_command(&step.cmd)
                 .stdin(Stdio::null())
                 .stdout(out)
                 .stderr(err)
@@ -88,7 +100,7 @@ pub fn build(path: &str) -> Result<i32> {
             code = match status {
                 Ok(s) => code_of(s),
                 Err(e) => {
-                    writeln!(log, "switchyard: could not start bash: {e}")?;
+                    writeln!(log, "switchyard: could not start the shell: {e}")?;
                     127
                 }
             };
@@ -147,48 +159,57 @@ pub fn launch(path: &str) -> Result<i32> {
             })
         })
         .collect();
-    let mut child = Command::new("bash")
-        .arg("-c")
-        .arg(format!("exec 2>&1\n{cmd}"))
+    let mut child = spec
+        .shell_command(&cmd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .context("starting bash")?;
-    let stdout = child.stdout.take().expect("piped stdout");
-    let mut reader = BufReader::new(stdout);
-    let mut buf = Vec::new();
-    loop {
-        buf.clear();
-        match reader.read_until(b'\n', &mut buf) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {
-                log.write_all(&buf)?;
-                if !buf.ends_with(b"\n") {
-                    log.write_all(b"\n")?;
-                }
-                log.flush()?;
-                if rules.is_empty() {
-                    continue;
-                }
-                let line = String::from_utf8_lossy(&buf);
-                let line = yard_core::errors::strip_ansi(line.trim_end());
-                for r in rules.iter_mut() {
-                    if !r.re.is_match(&line) {
-                        continue;
+        .context("starting the shell")?;
+    // Merge stdout and stderr line by line, the way a terminal shows them.
+    let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
+    let pump = |r: Box<dyn std::io::Read + Send>, tx: std::sync::mpsc::Sender<Vec<u8>>| {
+        std::thread::spawn(move || {
+            let mut reader = BufReader::new(r);
+            loop {
+                let mut buf = Vec::new();
+                match reader.read_until(b'\n', &mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {
+                        if tx.send(buf).is_err() {
+                            break;
+                        }
                     }
-                    if r.last.is_some_and(|t| t.elapsed().as_secs() < r.throttle) {
-                        continue;
-                    }
-                    r.last = Some(Instant::now());
-                    crate::sys::notify(
-                        &format!("{} {}", spec.label, r.title),
-                        &line,
-                        &r.urgency,
-                    );
                 }
             }
+        })
+    };
+    let out = pump(Box::new(child.stdout.take().expect("piped stdout")), tx.clone());
+    let err = pump(Box::new(child.stderr.take().expect("piped stderr")), tx);
+    for buf in rx {
+        log.write_all(&buf)?;
+        if !buf.ends_with(b"\n") {
+            log.write_all(b"\n")?;
+        }
+        log.flush()?;
+        if rules.is_empty() {
+            continue;
+        }
+        let line = String::from_utf8_lossy(&buf);
+        let line = yard_core::errors::strip_ansi(line.trim_end());
+        for r in rules.iter_mut() {
+            if !r.re.is_match(&line) {
+                continue;
+            }
+            if r.last.is_some_and(|t| t.elapsed().as_secs() < r.throttle) {
+                continue;
+            }
+            r.last = Some(Instant::now());
+            crate::sys::notify(&format!("{} {}", spec.label, r.title), &line, &r.urgency);
         }
     }
+    let _ = out.join();
+    let _ = err.join();
     let code = match child.wait() {
         Ok(s) => code_of(s),
         Err(_) => 1,

@@ -17,6 +17,9 @@ pub struct Config {
     pub ok_flash: u64,
     pub terminal: Vec<String>,
     pub editor: Vec<String>,
+    /// How steps run: the program and its "run this string" flag. Empty picks
+    /// bash on Linux and macOS, and pwsh, powershell or cmd on Windows.
+    pub shell: Vec<String>,
     pub mainline: MainlineConfig,
     pub board: BoardConfig,
     #[serde(rename = "tab")]
@@ -34,20 +37,37 @@ impl Default for Config {
             env_passthrough: vec![],
             log_dir: None,
             ok_flash: 6,
-            terminal: vec!["kitty".into(), "--hold".into(), "-e".into()],
-            editor: vec![
-                "kitty".into(),
-                "-e".into(),
-                "nvim".into(),
-                "+{line}".into(),
-                "{file}".into(),
-            ],
+            terminal: default_terminal(),
+            editor: default_editor(),
+            shell: vec![],
             mainline: MainlineConfig::default(),
             board: BoardConfig::default(),
             tabs: vec![],
             shelf: ShelfConfig::default(),
             bar: BarConfig::default(),
         }
+    }
+}
+
+fn strings(v: &[&str]) -> Vec<String> {
+    v.iter().map(|s| s.to_string()).collect()
+}
+
+fn default_terminal() -> Vec<String> {
+    if cfg!(target_os = "macos") {
+        strings(&["open", "-a", "Terminal"])
+    } else if cfg!(windows) {
+        strings(&["wt.exe", "--"])
+    } else {
+        strings(&["kitty", "--hold", "-e"])
+    }
+}
+
+fn default_editor() -> Vec<String> {
+    if cfg!(any(target_os = "macos", windows)) {
+        strings(&["code", "--goto", "{file}:{line}"])
+    } else {
+        strings(&["kitty", "-e", "nvim", "+{line}", "{file}"])
     }
 }
 

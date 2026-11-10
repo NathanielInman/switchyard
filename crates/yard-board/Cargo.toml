@@ -7,7 +7,8 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
-[dependencies]
+# The layer-shell board is Linux only; macOS and Windows use yard-tray.
+[target.'cfg(target_os = "linux")'.dependencies]
 yard-core = { path = "../yard-core" }
 serde.workspace = true
 serde_json.workspace = true

@@ -4,7 +4,9 @@
 use std::path::{Path, PathBuf};
 
 pub fn home() -> PathBuf {
-    std::env::var_os("HOME")
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(var)
+        .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/"))
 }
@@ -34,7 +36,9 @@ pub fn expand_vars(s: &str) -> String {
                 (chars[i + 1..i + 1 + len].iter().collect::<String>(), i + 1 + len)
             };
             if !name.is_empty() {
-                out.push_str(&std::env::var(&name).unwrap_or_default());
+                // $HOME means the home directory everywhere, Windows included.
+                let val = if name == "HOME" { home().to_string_lossy().to_string() } else { std::env::var(&name).unwrap_or_default() };
+                out.push_str(&val);
                 i = next;
                 continue;
             }
@@ -52,7 +56,7 @@ pub fn expand(s: &str) -> PathBuf {
     let replaced = expand_vars(s);
     if replaced == "~" {
         h
-    } else if let Some(rest) = replaced.strip_prefix("~/") {
+    } else if let Some(rest) = replaced.strip_prefix("~/").or_else(|| replaced.strip_prefix("~\\")) {
         h.join(rest)
     } else {
         PathBuf::from(replaced)
@@ -74,7 +78,7 @@ pub fn tilde(p: &Path) -> String {
     let h = home();
     match p.strip_prefix(&h) {
         Ok(rest) if rest.as_os_str().is_empty() => "~".into(),
-        Ok(rest) => format!("~/{}", rest.display()),
+        Ok(rest) => format!("~{}{}", std::path::MAIN_SEPARATOR, rest.display()),
         Err(_) => p.display().to_string(),
     }
 }
@@ -89,6 +93,10 @@ pub fn config_dir() -> PathBuf {
     if let Some(d) = env_dir("SWITCHYARD_CONFIG_DIR") {
         return d;
     }
+    if cfg!(windows) {
+        return env_dir("APPDATA").unwrap_or_else(|| home().join("AppData/Roaming")).join("switchyard");
+    }
+    // XDG layout on macOS too: it is where developers keep dot-files.
     env_dir("XDG_CONFIG_HOME")
         .unwrap_or_else(|| home().join(".config"))
         .join("switchyard")
@@ -98,18 +106,42 @@ pub fn state_dir() -> PathBuf {
     if let Some(d) = env_dir("SWITCHYARD_STATE_DIR") {
         return d;
     }
+    if cfg!(windows) {
+        return local_app_data().join("switchyard").join("state");
+    }
     env_dir("XDG_STATE_HOME")
         .unwrap_or_else(|| home().join(".local/state"))
         .join("switchyard")
 }
 
+#[cfg(windows)]
+fn local_app_data() -> PathBuf {
+    env_dir("LOCALAPPDATA").unwrap_or_else(|| home().join("AppData/Local"))
+}
+
+#[cfg(not(windows))]
+#[allow(dead_code)]
+fn local_app_data() -> PathBuf {
+    home()
+}
+
+/// Per-user directory for the socket and run files.
 pub fn runtime_dir() -> PathBuf {
     if let Some(d) = env_dir("SWITCHYARD_RUNTIME_DIR") {
         return d;
     }
-    match env_dir("XDG_RUNTIME_DIR") {
-        Some(d) => d.join("switchyard"),
-        None => PathBuf::from(format!("/tmp/switchyard-{}", unsafe { libc::getuid() })),
+    #[cfg(windows)]
+    {
+        local_app_data().join("switchyard").join("run")
+    }
+    #[cfg(unix)]
+    {
+        if let Some(d) = env_dir("XDG_RUNTIME_DIR") {
+            return d.join("switchyard");
+        }
+        // macOS: $TMPDIR is already per-user.
+        let base = env_dir("TMPDIR").unwrap_or_else(|| PathBuf::from("/tmp"));
+        base.join(format!("switchyard-{}", unsafe { libc::getuid() }))
     }
 }
 
@@ -152,8 +184,9 @@ mod tests {
         assert_eq!(expand("~/x/y"), h.join("x/y"));
         assert_eq!(expand("$HOME/a"), h.join("a"));
         assert_eq!(expand("/abs"), PathBuf::from("/abs"));
+        #[cfg(unix)]
         assert_eq!(expand_in("rel", Path::new("/base")), PathBuf::from("/base/rel"));
-        assert_eq!(tilde(&h.join("code")), "~/code");
+        assert_eq!(tilde(&h.join("code")), format!("~{}code", std::path::MAIN_SEPARATOR));
         std::env::set_var("YARD_TEST_VAR", "/v");
         assert_eq!(expand("${YARD_TEST_VAR}/a"), PathBuf::from("/v/a"));
         assert_eq!(expand("$YARD_TEST_VAR/b"), PathBuf::from("/v/b"));

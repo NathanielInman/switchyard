@@ -1,12 +1,10 @@
 //! The daemon socket: newline-delimited JSON.
 
 use crate::model::{Anchor, ShelfData, Snapshot};
-use crate::paths;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
-use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -169,15 +167,7 @@ pub enum Event {
     Bar(BarLine),
 }
 
-pub fn connect() -> Result<UnixStream> {
-    let path = paths::socket_path();
-    UnixStream::connect(&path).with_context(|| {
-        format!(
-            "cannot reach the Switchyard daemon at {} (start it with `systemctl --user start switchyard` or `yard daemon`)",
-            path.display()
-        )
-    })
-}
+pub use crate::transport::{connect, Stream};
 
 /// Sends one request and waits for its reply.
 pub fn request(req: &Request) -> Result<Reply> {

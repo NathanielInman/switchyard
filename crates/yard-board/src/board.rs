@@ -502,7 +502,7 @@ impl Board {
         if geometry_changed {
             self.stage.set_geometry(s.board.width as f64, s.board.max_height, s.board.gap as f64);
             if let Some(font) = &s.board.font {
-                crate::apply_font(font);
+                crate::linux::apply_font(font);
             }
         }
         // Drop tiles for tasks that no longer exist.

@@ -5,9 +5,10 @@ use crate::model::{Anchor, Edge};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+#[cfg(unix)]
 use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::time::Duration;
 
 pub fn socket() -> Option<PathBuf> {
@@ -20,9 +21,15 @@ pub fn socket() -> Option<PathBuf> {
     candidates.into_iter().find(|p| p.exists())
 }
 
+#[cfg(not(unix))]
+pub fn query(_cmd: &str) -> Result<String> {
+    Err(anyhow!("Hyprland only runs on Linux"))
+}
+
+#[cfg(unix)]
 pub fn query(cmd: &str) -> Result<String> {
     let path = socket().ok_or_else(|| anyhow!("not running under Hyprland"))?;
-    let mut s = UnixStream::connect(path)?;
+    let mut s = std::os::unix::net::UnixStream::connect(path)?;
     s.set_read_timeout(Some(Duration::from_millis(800)))?;
     s.write_all(cmd.as_bytes())?;
     let mut out = String::new();

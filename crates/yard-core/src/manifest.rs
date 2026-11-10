@@ -626,8 +626,7 @@ fn script_files(cfg: &Config) -> Vec<PathBuf> {
             let p = e.path();
             // Follow symlinks: ~/.local/bin is often full of them.
             if let Ok(m) = std::fs::metadata(&p) {
-                use std::os::unix::fs::PermissionsExt;
-                if m.is_file() && m.permissions().mode() & 0o111 != 0 && m.len() < 512 * 1024 {
+                if m.is_file() && is_executable(&p, &m) && m.len() < 512 * 1024 {
                     out.push(p);
                 }
             }
@@ -635,6 +634,19 @@ fn script_files(cfg: &Config) -> Vec<PathBuf> {
     }
     out.sort();
     out
+}
+
+#[cfg(unix)]
+fn is_executable(_p: &Path, m: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    m.permissions().mode() & 0o111 != 0
+}
+
+/// Windows has no execute bit: scripts are known by their extension.
+#[cfg(not(unix))]
+fn is_executable(p: &Path, _m: &std::fs::Metadata) -> bool {
+    let ext = p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    matches!(ext.as_str(), "ps1" | "cmd" | "bat" | "sh" | "py" | "exe")
 }
 
 fn overlay_files() -> Vec<PathBuf> {

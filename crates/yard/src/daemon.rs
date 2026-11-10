@@ -2,13 +2,12 @@
 
 use crate::history::History;
 use crate::spec::{exit_file, spec_file, RunSpec};
+use crate::supervise::{self, Ended, Handle, Spawn, Supervisor};
 use crate::sys;
-use anyhow::{bail, Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,17 +19,19 @@ use yard_core::manifest::{self, NotifyMode, Rerun, Step, TaskDef};
 use yard_core::model::*;
 use yard_core::paths;
 use yard_core::protocol::*;
-use yard_core::size::{human, systemd as systemd_size};
+use yard_core::size::human;
+use yard_core::transport::{Listener, Stream};
 use yard_core::Problem;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
+#[cfg(unix)]
 extern "C" fn on_signal(_: libc::c_int) {
     SHUTDOWN.store(true, Ordering::SeqCst);
 }
 
 enum Msg {
-    Client { req: Request, stream: UnixStream },
+    Client { req: Request, stream: Stream },
     Tick,
     Git(Vec<(PathBuf, Option<GitInfo>)>),
     Wake,
@@ -38,7 +39,7 @@ enum Msg {
 
 struct Sub {
     kind: SubKind,
-    stream: UnixStream,
+    stream: Stream,
     last: Option<String>,
 }
 
@@ -61,6 +62,10 @@ struct RunRec {
     id: u64,
     task: String,
     phase: RunPhase,
+    #[serde(default)]
+    handle: Handle,
+    /// Older run files named the unit here.
+    #[serde(default, skip_serializing)]
     unit: String,
     started: f64,
     run_cmd: Option<String>,
@@ -71,10 +76,6 @@ struct RunRec {
     stopping: bool,
     #[serde(skip)]
     restart: Option<Pending>,
-    #[serde(skip)]
-    cgroup: Option<PathBuf>,
-    #[serde(skip)]
-    cg_tries: u32,
     #[serde(skip)]
     gone_since: Option<Instant>,
 }
@@ -111,6 +112,8 @@ impl TaskRt {
 
 pub struct Daemon {
     tx: Sender<Msg>,
+    sup: Box<dyn Supervisor>,
+    shell: Vec<String>,
     cfg: Config,
     tasks: Vec<TaskDef>,
     problems: Vec<Problem>,
@@ -136,19 +139,9 @@ pub struct Daemon {
 }
 
 pub fn run() -> Result<()> {
-    let rt = paths::runtime_dir();
-    std::fs::create_dir_all(&rt)?;
-    let _ = std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o700));
     std::fs::create_dir_all(paths::runs_dir())?;
-    let sock = paths::socket_path();
-    if sock.exists() {
-        if UnixStream::connect(&sock).is_ok() {
-            bail!("a Switchyard daemon is already running on {}", sock.display());
-        }
-        let _ = std::fs::remove_file(&sock);
-    }
-    let listener = UnixListener::bind(&sock).with_context(|| format!("binding {}", sock.display()))?;
-    std::fs::set_permissions(&sock, std::fs::Permissions::from_mode(0o600))?;
+    let listener = std::sync::Arc::new(Listener::bind()?);
+    #[cfg(unix)]
     unsafe {
         libc::signal(libc::SIGTERM, on_signal as *const () as usize);
         libc::signal(libc::SIGINT, on_signal as *const () as usize);
@@ -158,12 +151,12 @@ pub fn run() -> Result<()> {
     let (tx, rx) = channel::<Msg>();
     {
         let tx = tx.clone();
-        std::thread::spawn(move || {
-            for conn in listener.incoming() {
-                let Ok(stream) = conn else { continue };
-                let tx = tx.clone();
-                std::thread::spawn(move || handle_conn(stream, tx));
-            }
+        let listener = listener.clone();
+        std::thread::spawn(move || loop {
+            let Ok(stream) = listener.accept() else { continue };
+            let tx = tx.clone();
+            let l = listener.clone();
+            std::thread::spawn(move || handle_conn(stream, tx, &l));
         });
     }
     {
@@ -180,20 +173,24 @@ pub fn run() -> Result<()> {
     d.reload(true);
     d.adopt();
     eprintln!(
-        "switchyard: {} tasks, socket {}",
+        "switchyard: {} tasks, {} backend, {}",
         d.tasks.len(),
-        sock.display()
+        d.sup.name(),
+        yard_core::transport::endpoint().display()
     );
     d.event_loop(rx);
     d.history.save();
     d.save_runs();
-    let _ = std::fs::remove_file(&sock);
+    listener.cleanup();
     Ok(())
 }
 
-fn handle_conn(stream: UnixStream, tx: Sender<Msg>) {
+fn handle_conn(stream: Stream, tx: Sender<Msg>, listener: &Listener) {
     let Ok(read_half) = stream.try_clone() else { return };
-    let reader = BufReader::new(read_half);
+    let mut reader = BufReader::new(read_half);
+    if !listener.authorize(&mut reader) {
+        return;
+    }
     for line in reader.lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -219,38 +216,30 @@ fn handle_conn(stream: UnixStream, tx: Sender<Msg>) {
     }
 }
 
-fn write_line(stream: &mut UnixStream, line: &str) -> bool {
+fn write_line(stream: &mut Stream, line: &str) -> bool {
     let _ = stream.set_write_timeout(Some(Duration::from_millis(1500)));
     stream.write_all(line.as_bytes()).is_ok() && stream.write_all(b"\n").is_ok()
 }
 
 /// "2026-11-09 22:41:07" in local time.
 pub fn local_time(secs: f64) -> String {
-    let t = secs as libc::time_t;
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    unsafe { libc::localtime_r(&t, &mut tm) };
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-        tm.tm_year + 1900,
-        tm.tm_mon + 1,
-        tm.tm_mday,
-        tm.tm_hour,
-        tm.tm_min,
-        tm.tm_sec
-    )
+    use chrono::TimeZone;
+    match chrono::Local.timestamp_opt(secs as i64, 0) {
+        chrono::LocalResult::Single(t) | chrono::LocalResult::Ambiguous(t, _) => t.format("%Y-%m-%d %H:%M:%S").to_string(),
+        chrono::LocalResult::None => String::new(),
+    }
 }
 
 fn random_u64() -> u64 {
-    let mut b = [0u8; 8];
-    let n = unsafe { libc::getrandom(b.as_mut_ptr() as *mut libc::c_void, 8, 0) };
-    if n == 8 {
-        u64::from_le_bytes(b)
-    } else {
-        let t = std::time::SystemTime::now()
+    use std::hash::{BuildHasher, Hasher};
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u128(
+        std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        (t.as_nanos() as u64).wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
-    }
+            .unwrap_or_default()
+            .as_nanos(),
+    );
+    h.finish()
 }
 
 /// `random:u30` and friends become a number; anything else is literal.
@@ -285,6 +274,8 @@ impl Daemon {
         let start = (now() as u64 % 10_000_000) * 100;
         Daemon {
             tx,
+            sup: supervise::pick(),
+            shell: vec![],
             cfg,
             tasks: vec![],
             problems,
@@ -369,6 +360,7 @@ impl Daemon {
         self.rt.retain(|k, _| ids.contains(k));
         self.queue.retain(|k| ids.contains(k));
         self.base_env = self.compute_env();
+        self.shell = if self.cfg.shell.is_empty() { supervise::default_shell() } else { self.cfg.shell.clone() };
         self.shelf = None;
         self.dirty = true;
     }
@@ -403,18 +395,17 @@ impl Daemon {
                 env.insert(k, v);
             }
         }
-        let mut path: Vec<String> = self
-            .cfg
-            .path_prepend
-            .iter()
-            .map(|p| paths::expand(p).to_string_lossy().to_string())
-            .collect();
-        for p in std::env::var("PATH").unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin".into()).split(':') {
-            if !p.is_empty() && !path.iter().any(|x| x == p) {
-                path.push(p.to_string());
+        let mut path: Vec<PathBuf> = self.cfg.path_prepend.iter().map(|p| paths::expand(p)).collect();
+        if let Some(cur) = std::env::var_os("PATH") {
+            for p in std::env::split_paths(&cur) {
+                if !p.as_os_str().is_empty() && !path.contains(&p) {
+                    path.push(p);
+                }
             }
         }
-        env.insert("PATH".into(), path.join(":"));
+        if let Ok(joined) = std::env::join_paths(&path) {
+            env.insert("PATH".into(), joined.to_string_lossy().to_string());
+        }
         env.insert("SWITCHYARD_RUNTIME_DIR".into(), paths::runtime_dir().to_string_lossy().to_string());
         env
     }
@@ -429,7 +420,7 @@ impl Daemon {
 
     // ----------------------------------------------------------- requests
 
-    fn handle(&mut self, req: Request, mut stream: UnixStream) {
+    fn handle(&mut self, req: Request, mut stream: Stream) {
         let reply = match req {
             Request::Ping => Reply::msg(format!("switchyard {}", env!("CARGO_PKG_VERSION"))),
             Request::Snapshot => Reply {
@@ -504,7 +495,7 @@ impl Daemon {
         write_line(&mut stream, &line);
     }
 
-    fn subscribe(&mut self, kind: SubKind, stream: UnixStream) {
+    fn subscribe(&mut self, kind: SubKind, stream: Stream) {
         let mut sub = Sub { kind, stream, last: None };
         let ok = match kind {
             SubKind::Bar => {
@@ -557,24 +548,23 @@ impl Daemon {
     }
 
     fn spawn_board(&self) {
-        let has_unit = sys::systemctl_user(&["cat", "switchyard-board.service"]).is_some_and(|t| !t.is_empty());
-        if has_unit {
-            let mut c = Command::new("systemctl");
-            c.args(["--user", "start", "switchyard-board.service"]);
-            let _ = sys::spawn_detached(c);
-            return;
+        #[cfg(target_os = "linux")]
+        {
+            let has_unit = sys::systemctl_user(&["cat", "switchyard-board.service"]).is_some_and(|t| !t.is_empty());
+            if has_unit {
+                let mut c = Command::new("systemctl");
+                c.args(["--user", "start", "switchyard-board.service"]);
+                let _ = sys::spawn_detached(c);
+                return;
+            }
         }
-        let bin = sys::sibling_binary("yard-board");
-        let mut c = Command::new(bin);
+        // Linux has the layer-shell board; macOS and Windows the tray app's.
+        let (bin, args): (&str, &[&str]) = if cfg!(target_os = "linux") { ("yard-board", &[]) } else { ("yard-tray", &["board"]) };
+        let mut c = Command::new(sys::sibling_binary(bin));
+        c.args(args);
         let log = paths::state_dir().join("board.log");
         let _ = std::fs::create_dir_all(paths::state_dir());
-        unsafe {
-            use std::os::unix::process::CommandExt;
-            c.pre_exec(|| {
-                libc::setsid();
-                Ok(())
-            });
-        }
+        sys::detach(&mut c);
         if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(log) {
             if let Ok(f2) = f.try_clone() {
                 c.stdout(f).stderr(f2);
@@ -636,8 +626,8 @@ impl Daemon {
                 if let Some(rec) = run.and_then(|r| self.runs.get_mut(&r)) {
                     rec.stopping = true;
                     rec.restart = Some(p);
-                    let unit = rec.unit.clone();
-                    stop_unit(&unit);
+                    let h = rec.handle.clone();
+                    self.sup.stop(&h);
                     self.dirty = true;
                     return Reply::msg(format!("restarting {}", def.label));
                 }
@@ -804,6 +794,7 @@ impl Daemon {
             retry: def.retry.clone(),
             watch: def.watch.clone(),
             scratch: scratch.clone(),
+            shell: self.shell.clone(),
         };
         let _ = std::fs::create_dir_all(paths::runs_dir());
         if let Err(e) = std::fs::write(spec_file(run), serde_json::to_string(&spec).unwrap_or_default()) {
@@ -816,6 +807,7 @@ impl Daemon {
             id: run,
             task: def.id.clone(),
             phase: if steps.is_empty() { RunPhase::Launch } else { RunPhase::Build },
+            handle: Handle::default(),
             unit: String::new(),
             started: at,
             run_cmd,
@@ -824,8 +816,6 @@ impl Daemon {
             had_steps: !steps.is_empty(),
             stopping: false,
             restart: None,
-            cgroup: None,
-            cg_tries: 0,
             gone_since: None,
         };
         {
@@ -844,33 +834,20 @@ impl Daemon {
             RunPhase::Build => "build",
             RunPhase::Launch => "launch",
         };
-        let unit = format!("switchyard-{}-{}-{}", manifest::unit_safe(&def.id), rec.id, phase_name);
-        rec.unit = unit.clone();
         if !def.dir.is_dir() {
             self.release_mainline(&def.id);
             self.fail_now(&def.id, format!("directory not found: {}", paths::tilde(&def.dir)));
             return;
         }
-        let mut c = Command::new("systemd-run");
-        c.args(["--user", "--quiet", "--collect"]);
-        c.arg(format!("--unit={unit}"));
-        c.arg(format!("--description=switchyard: {} {}", def.label, phase_name));
-        c.arg(format!("--working-directory={}", def.dir.display()));
-        c.args(["-p", "KillMode=control-group", "-p", "TimeoutStopSec=10"]);
-        if rec.phase == RunPhase::Build {
-            let mem = if rec.heavy {
-                Some(def.mem.unwrap_or(self.cfg.mainline.mem_bytes()))
-            } else {
-                def.mem
-            };
-            if let Some(m) = mem {
-                c.args(["-p", &format!("MemoryMax={}", systemd_size(m)), "-p", "MemorySwapMax=0"]);
-            }
-            let idle = def.idle_cpu.unwrap_or(rec.heavy && self.cfg.mainline.idle_cpu);
-            if idle {
-                c.args(["-p", "CPUWeight=idle", "-p", &format!("Nice={}", self.cfg.mainline.nice)]);
-            }
-        }
+        let build = rec.phase == RunPhase::Build;
+        let mem = if !build {
+            None
+        } else if rec.heavy {
+            Some(def.mem.unwrap_or(self.cfg.mainline.mem_bytes()))
+        } else {
+            def.mem
+        };
+        let idle = build && def.idle_cpu.unwrap_or(rec.heavy && self.cfg.mainline.idle_cpu);
         let mut env = self.base_env.clone();
         for (k, v) in &def.env {
             env.insert(k.clone(), paths::expand(v).to_string_lossy().to_string());
@@ -882,24 +859,23 @@ impl Daemon {
             paths::runs_dir().join(format!("{}.scratch", rec.id)).to_string_lossy().to_string(),
         );
         env.insert("YARD_LOG".into(), def.log.to_string_lossy().to_string());
-        for (k, v) in &env {
-            c.arg(format!("--setenv={k}={v}"));
-        }
         let me = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("yard"));
-        c.arg("--").arg(me).arg(format!("__{phase_name}")).arg(spec_file(rec.id));
-        c.stdin(std::process::Stdio::null());
-        let out = c.output();
-        match out {
-            Ok(o) if o.status.success() => {}
-            Ok(o) => {
-                let err = String::from_utf8_lossy(&o.stderr).trim().to_string();
-                self.release_mainline(&def.id);
-                self.fail_now(&def.id, format!("systemd-run failed: {err}"));
-                return;
-            }
+        let spawn = Spawn {
+            name: format!("switchyard-{}-{}-{}", manifest::unit_safe(&def.id), rec.id, phase_name),
+            description: format!("switchyard: {} {}", def.label, phase_name),
+            dir: &def.dir,
+            env: &env,
+            program: me,
+            args: vec![format!("__{phase_name}"), spec_file(rec.id).to_string_lossy().to_string()],
+            mem,
+            idle,
+            nice: self.cfg.mainline.nice,
+        };
+        match self.sup.spawn(&spawn) {
+            Ok(h) => rec.handle = h,
             Err(e) => {
                 self.release_mainline(&def.id);
-                self.fail_now(&def.id, format!("could not run systemd-run: {e}"));
+                self.fail_now(&def.id, e);
                 return;
             }
         }
@@ -941,8 +917,8 @@ impl Daemon {
                 if let Some(rec) = run.and_then(|r| self.runs.get_mut(&r)) {
                     rec.stopping = true;
                     rec.restart = None;
-                    let unit = rec.unit.clone();
-                    stop_unit(&unit);
+                    let h = rec.handle.clone();
+                    self.sup.stop(&h);
                 }
                 Reply::msg(format!("stopping {label}"))
             }
@@ -954,11 +930,7 @@ impl Daemon {
         let Some(rec) = self.runs.remove(&run) else { return };
         self.save_runs();
         let _ = std::fs::remove_file(exit_file(run, "build"));
-        if code != 0 {
-            let mut c = Command::new("systemctl");
-            c.args(["--user", "reset-failed", &rec.unit]);
-            let _ = sys::spawn_detached(c);
-        }
+        self.sup.forget(&rec.handle, code != 0);
         match rec.phase {
             RunPhase::Build => self.end_build(rec, code, oom),
             RunPhase::Launch => self.end_launch(rec, code, oom),
@@ -992,8 +964,6 @@ impl Daemon {
             if rec.run_cmd.is_some() {
                 rec.phase = RunPhase::Launch;
                 rec.build_secs = secs;
-                rec.cgroup = None;
-                rec.cg_tries = 0;
                 rec.gone_since = None;
                 if def.notify == NotifyMode::Always || (def.notify == NotifyMode::Auto && secs >= 20.0) {
                     sys::notify(&def.label, &format!("Built in {}, launching", duration(secs)), "low");
@@ -1189,30 +1159,19 @@ impl Daemon {
     }
 
     fn watch_run(&mut self, id: u64, sample: bool) {
-        let Some(rec) = self.runs.get_mut(&id) else { return };
-        if rec.cgroup.is_none() && rec.cg_tries < 4 {
-            rec.cg_tries += 1;
-            rec.cgroup = sys::cgroup_path(&rec.unit);
-        }
-        let alive = rec.cgroup.as_ref().is_some_and(|c| sys::cgroup_alive(c));
-        if alive {
-            rec.gone_since = None;
-            let cg = rec.cgroup.clone().unwrap();
-            let task = rec.task.clone();
-            let mem = sys::read_u64(&cg.join("memory.current"));
-            let usage = sys::cpu_usage_usec(&cg);
-            let r = self.rt(&task);
-            r.mem = mem;
-            if let Some(u) = usage {
-                let nowi = Instant::now();
-                if let Some((pu, pt)) = r.cpu_prev {
-                    let wall = nowi.duration_since(pt).as_micros().max(1) as f64;
-                    r.cpu = Some(((u.saturating_sub(pu)) as f64 / wall * 100.0) as f32);
-                }
-                r.cpu_prev = Some((u, nowi));
+        let Some(rec) = self.runs.get(&id) else { return };
+        let handle = rec.handle.clone();
+        let task = rec.task.clone();
+        let usage = self.sup.poll(&handle);
+        if usage.alive {
+            if let Some(rec) = self.runs.get_mut(&id) {
+                rec.gone_since = None;
             }
+            let r = self.rt(&task);
+            r.mem = usage.mem;
+            r.cpu = usage.cpu;
             if sample {
-                if let Some(m) = mem {
+                if let Some(m) = usage.mem {
                     r.mem_hist.push_back(m);
                     while r.mem_hist.len() > 60 {
                         r.mem_hist.pop_front();
@@ -1221,11 +1180,12 @@ impl Daemon {
             }
             return;
         }
+        let Some(rec) = self.runs.get_mut(&id) else { return };
         let since = *rec.gone_since.get_or_insert_with(Instant::now);
         if since.elapsed() < Duration::from_millis(1500) {
             return;
         }
-        // The unit is gone and the runner did not report. Find out why.
+        // Gone, and the runner did not report. Find out why.
         let rec = rec.clone();
         let phase = match rec.phase {
             RunPhase::Build => "build",
@@ -1234,29 +1194,21 @@ impl Daemon {
         if let Ok(t) = std::fs::read_to_string(exit_file(rec.id, phase)) {
             let mut it = t.split_whitespace();
             let code = it.next().and_then(|c| c.parse().ok()).unwrap_or(1);
-            let oom = it.next() == Some("1");
+            let oom = it.next() == Some("1") || self.sup.post_mortem(&handle) == Ended::Oom;
             self.finished(rec.id, code, oom);
             return;
         }
-        let props = sys::unit_properties(&rec.unit, &["ActiveState", "Result", "ExecMainStatus"]);
-        let state = props.get("ActiveState").map(String::as_str).unwrap_or("");
-        if matches!(state, "active" | "activating" | "reloading") {
-            // Still running; the cgroup path was wrong. Look it up again.
-            if let Some(r) = self.runs.get_mut(&id) {
-                r.cgroup = None;
-                r.cg_tries = 0;
-                r.gone_since = None;
+        match self.sup.post_mortem(&handle) {
+            Ended::Code(-1) => {
+                // Still running after all (systemd): look again next tick.
+                if let Some(r) = self.runs.get_mut(&id) {
+                    r.gone_since = None;
+                }
             }
-            return;
+            Ended::Oom => self.finished(rec.id, 137, true),
+            Ended::Code(c) => self.finished(rec.id, c, false),
+            Ended::Unknown => self.finished(rec.id, if rec.stopping { 0 } else { 1 }, false),
         }
-        let result = props.get("Result").map(String::as_str).unwrap_or("");
-        let oom = result == "oom-kill";
-        let code = props
-            .get("ExecMainStatus")
-            .and_then(|s| s.parse::<i32>().ok())
-            .filter(|c| *c != 0)
-            .unwrap_or(if rec.stopping { 0 } else { 1 });
-        self.finished(rec.id, code, oom);
     }
 
     fn scan_captures(&mut self) {
@@ -1606,7 +1558,10 @@ impl Daemon {
         let path = paths::runs_dir().join("active.json");
         let Ok(text) = std::fs::read_to_string(&path) else { return };
         let Ok(recs) = serde_json::from_str::<Vec<RunRec>>(&text) else { return };
-        for rec in recs {
+        for mut rec in recs {
+            if rec.handle.name.is_empty() {
+                rec.handle.name = std::mem::take(&mut rec.unit);
+            }
             self.next_run = self.next_run.max(rec.id + 1);
             if self.def(&rec.task).is_none() {
                 self.cleanup_run(rec.id);
@@ -1633,8 +1588,4 @@ impl Daemon {
     }
 }
 
-fn stop_unit(unit: &str) {
-    let mut c = Command::new("systemctl");
-    c.args(["--user", "stop", "--no-block", unit]);
-    let _ = sys::spawn_detached(c);
-}
+
