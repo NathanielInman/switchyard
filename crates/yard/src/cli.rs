@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 use yard_core::config::Config;
-use yard_core::model::{ago, clock, Phase, Snapshot, TaskView};
+use yard_core::model::{ago, clock, duration, Phase, Snapshot, TaskView};
 use yard_core::paths;
 use yard_core::protocol::{request, AckPhase, BarLine, Reply, Request, SubKind};
 
@@ -487,7 +487,56 @@ mod tests {
 
     #[test]
     fn durations_render() {
-        use yard_core::model::duration;
         assert_eq!(duration(65.0), "1m 5s");
     }
+}
+
+/// `yard history [id] [--json]`: the episode feed in the terminal.
+pub fn history(rest: &[String]) -> Result<i32> {
+    let json = rest.iter().any(|a| a == "--json");
+    let id = rest.iter().find(|a| !a.starts_with("--")).cloned();
+    let r = send(Request::History { id: id.clone(), limit: None })?;
+    let h = r.history.ok_or_else(|| anyhow!("the daemon sent no history"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&h)?);
+        return Ok(0);
+    }
+    let p = Paint::new();
+    if h.records.is_empty() {
+        println!("no runs recorded yet{}", id.map(|i| format!(" for {i}")).unwrap_or_default());
+        return Ok(0);
+    }
+    use yard_core::history::Lamp;
+    for day in h.days.iter().take(7) {
+        println!("{}", p.c("1", &day.label.to_lowercase()));
+        for e in &day.episodes {
+            let lamp = match e.lamp {
+                Lamp::Go => p.c("32", "●"),
+                Lamp::Stop => p.c("31", "●"),
+                Lamp::Fix => format!("{}{}", p.c("31", "●"), p.c("32", "●")),
+                Lamp::Caution => p.c("33", "●"),
+                Lamp::Frost => p.c("36", "●"),
+            };
+            let chip = e.chip.as_ref().map(|(t, k)| {
+                let code = match k.as_str() {
+                    "bad" => "31",
+                    "ok" => "32",
+                    _ => "33",
+                };
+                format!(" {}", p.c(code, &format!("({t})")))
+            });
+            let who = if id.is_some() { String::new() } else { format!("{:14} ", e.who) };
+            println!("  {lamp:<2} {who}{}{} {}", e.what, chip.unwrap_or_default(), p.c("90", &format!("· {} · {}", e.sub, e.when)));
+        }
+    }
+    let w = &h.week;
+    let mut parts = vec![format!("{} building", duration(w.building_secs)), format!("{} on the main line", duration(w.waiting_secs))];
+    if let Some((t, n)) = &w.flakiest {
+        parts.push(format!("flakiest: {t} ({n} retries)"));
+    }
+    if let Some((t, g)) = &w.slower {
+        parts.push(format!("{t} +{:.0}% slower", g * 100.0));
+    }
+    println!("\n{} {}", p.c("1", "this week"), parts.join(" · "));
+    Ok(0)
 }
