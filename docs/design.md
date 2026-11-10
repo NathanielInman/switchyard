@@ -203,7 +203,9 @@ and clamped to the screen. The window is exactly the size of the panel and
 grows away from its anchor. It hides when it loses focus, like any menu.
 One `yard-tray` runs per user: it holds a lock on `tray.lock` in the runtime
 directory, and a second launch (a taskbar pin, the Start menu) asks the
-daemon to show the running one's board, then exits.
+daemon to show the running one's board, then exits. On Windows the exe
+carries the signal icon and a version resource whose description is
+"Switchyard".
 
 ## Siblings
 

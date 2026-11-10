@@ -1,0 +1,34 @@
+// Windows resources for yard-tray.exe: the app icon, and the version info
+// Explorer and the taskbar read the name "Switchyard" from (FileDescription)
+// instead of the file name. build.rs passes the YARD_* macros.
+
+1 ICON "switchyard.ico"
+
+1 VERSIONINFO
+FILEVERSION YARD_MAJOR, YARD_MINOR, YARD_PATCH, 0
+PRODUCTVERSION YARD_MAJOR, YARD_MINOR, YARD_PATCH, 0
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0x0
+FILEOS 0x40004
+FILETYPE 0x1
+FILESUBTYPE 0x0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Nathaniel Inman"
+            VALUE "FileDescription", "Switchyard"
+            VALUE "FileVersion", YARD_VERSION
+            VALUE "InternalName", "yard-tray"
+            VALUE "LegalCopyright", "Nathaniel Inman"
+            VALUE "OriginalFilename", "yard-tray.exe"
+            VALUE "ProductName", "Switchyard"
+            VALUE "ProductVersion", YARD_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
