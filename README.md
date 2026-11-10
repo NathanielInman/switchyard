@@ -18,6 +18,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-ebcb8b" alt="MIT license"></a>
 </p>
 
+<table>
+  <tr>
+    <td width="52%" valign="bottom"><img src="docs/assets/screens/history-feed.png" alt="The History tab: this week's numbers, then today's runs folded into episodes: storefront 9 ok and 23% slower in next build, ledger-api broken for 18 minutes and fixed by a commit, a deploy, and yesterday's failed load test."></td>
+    <td width="48%" valign="bottom"><img src="docs/assets/screens/history-strip.png" alt="One task's strip: a bar per run over six days against its usual time, three red failures this morning, and the card for one of them with its TypeScript error, the last green commit and a copy button."></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub><b>History.</b> Every run folds into episodes, so you read your week instead of its logs: what broke, what fixed it, what got slower and what you waited on.</sub></td>
+  </tr>
+</table>
+
 <p align="center">
   <img src="docs/assets/hero.svg" alt="The Switchyard board open above a waybar icon: eight task tiles with colored lamps, a main-line strip showing one heavy build and one waiting, and a recent strip." width="100%">
 </p>
@@ -124,6 +134,7 @@ cargo build && examples/demo/run-demo.sh
 
 | | |
 |---|---|
+| **History** | Every run is recorded with its step times, retries, queue wait, peak memory and commit, and folded into episodes by day: "broken for 18m, fixed by 3f2a1c", "9 ok, 23% slower in next build". Open a task's strip to see every run as a bar against its usual time, and any past run's own log. `yard history` prints the same in a terminal. |
 | **Anchoring** | Reads the bar's position and your click from Hyprland's IPC, so the panel grows out of the icon on any edge. Falls back to a centered panel elsewhere. |
 | **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (rerun yesterday's branch), open the log, open in your editor, a terminal in the repo, copy the exact command. |
 | **Guarded tasks** | `confirm = "hold"` makes a task fire only after a 1.2 second hold. `confirm = "type"` asks you to type its name. For deploys that drop users. |
@@ -268,6 +279,7 @@ yard ls                    list tasks with their state
 yard run <id> [-p k=v]     run a task, with parameters or --variant
 yard stop <id>             stop a task
 yard log <id> [-f]         print or follow a task's log
+yard history [id]          what ran, folded into episodes by day
 yard ack                   acknowledge failures
 yard add                   scaffold a .yard.toml in the current repo
 yard bar                   waybar module: stream the aggregate state
@@ -287,6 +299,8 @@ yard daemon                run the daemon (the user unit does this)
 | <kbd>e</kbd> | | open the error in your editor |
 | <kbd>r</kbd> | | run again |
 | <kbd>a</kbd> | | acknowledge |
+| <kbd>o</kbd> (History) | open a task's runs | |
+| <kbd>←</kbd> <kbd>→</kbd> (a strip) | step through runs; <kbd>r</kbd> replay, <kbd>l</kbd> its log | |
 | <kbd>Esc</kbd> | close | back |
 
 ## Theming
