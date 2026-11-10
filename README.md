@@ -118,12 +118,15 @@ setup.
 
 ```jsonc
 "custom/switchyard": {
-  "exec": "yard bar",
+  "exec": "~/.local/bin/yard bar",
   "return-type": "json",
-  "on-click": "yard toggle",
-  "on-click-right": "yard ack"
+  "on-click": "~/.local/bin/yard toggle",
+  "on-click-right": "~/.local/bin/yard ack"
 }
 ```
+
+Use the full path: a waybar started by systemd usually does not have
+`~/.local/bin` on its `PATH`.
 
 The module's CSS class is the aggregate state (`idle`, `building`, `queued`,
 `running`, `ok`, `failed`), so you can color it in `style.css`:
@@ -137,10 +140,10 @@ The module's CSS class is the aggregate state (`idle`, `building`, `queued`,
 **2. Bind a key** (Hyprland, Lua config):
 
 ```lua
-hl.bind("SUPER + Y", hl.dsp.exec_cmd("yard toggle --center"))
+hl.bind("SUPER + Y", hl.dsp.exec_cmd("~/.local/bin/yard toggle --center"))
 ```
 
-or the classic syntax: `bind = SUPER, Y, exec, yard toggle --center`.
+or the classic syntax: `bind = SUPER, Y, exec, ~/.local/bin/yard toggle --center`.
 
 **3. Tell it where your code is.** `~/.config/switchyard/config.toml`:
 

@@ -1,8 +1,9 @@
-// Add "custom/switchyard" to one of your modules-* lists.
+// Add "custom/switchyard" to one of your modules-* lists. Full paths, because
+// a waybar started by systemd rarely has ~/.local/bin on its PATH.
 "custom/switchyard": {
-  "exec": "yard bar",
+  "exec": "~/.local/bin/yard bar",
   "return-type": "json",
-  "on-click": "yard toggle",
-  "on-click-right": "yard ack",
+  "on-click": "~/.local/bin/yard toggle",
+  "on-click-right": "~/.local/bin/yard ack",
   "tooltip": true
 }
