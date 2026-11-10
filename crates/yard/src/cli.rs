@@ -23,7 +23,9 @@ fn ensure_daemon() -> Result<()> {
     if yard_core::protocol::connect().is_ok() {
         return Ok(());
     }
-    if !crate::setup::start_service() {
+    // An isolated setup (SWITCHYARD_RUNTIME_DIR) never starts the installed service.
+    let isolated = std::env::var_os("SWITCHYARD_RUNTIME_DIR").is_some();
+    if isolated || !crate::setup::start_service() {
         let me = std::env::current_exe()?;
         let mut c = Command::new(me);
         c.arg("daemon");

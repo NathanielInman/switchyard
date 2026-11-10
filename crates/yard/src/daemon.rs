@@ -594,8 +594,11 @@ impl Daemon {
     }
 
     fn spawn_board(&self) {
+        // An isolated daemon (a demo, a test) must not start the user's own
+        // installed board.
+        let isolated = std::env::var_os("SWITCHYARD_RUNTIME_DIR").is_some();
         #[cfg(target_os = "linux")]
-        {
+        if !isolated {
             let has_unit = sys::systemctl_user(&["cat", "switchyard-board.service"]).is_some_and(|t| !t.is_empty());
             if has_unit {
                 let mut c = Command::new("systemctl");
@@ -604,6 +607,7 @@ impl Daemon {
                 return;
             }
         }
+        let _ = isolated;
         // Linux has the layer-shell board; macOS and Windows the tray app's.
         let (bin, args): (&str, &[&str]) = if cfg!(target_os = "linux") { ("yard-board", &[]) } else { ("yard-tray", &[]) };
         let mut c = Command::new(sys::sibling_binary(bin));
@@ -1272,10 +1276,12 @@ impl Daemon {
 
     fn history_data(&self, id: Option<&str>, limit: usize) -> yard_core::protocol::HistoryData {
         use chrono::Offset;
-        yard_core::history::set_local_offset(chrono::Local::now().offset().fix().local_minus_utc() as i64);
+        let offset = chrono::Local::now().offset().fix().local_minus_utc() as i64;
+        yard_core::history::set_local_offset(offset);
         let records = crate::runlog::read(id, limit);
         let t = now();
         yard_core::protocol::HistoryData {
+            offset,
             days: yard_core::history::episodes(&records, t),
             week: yard_core::history::week_stats(&records, t),
             records,
