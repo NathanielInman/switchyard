@@ -37,8 +37,6 @@ jobs:
       - name: Build
         shell: bash
         env:
-          # Link gtk4-layer-shell in, so the board only needs GTK 4 at run time.
-          SYSTEM_DEPS_GTK4_LAYER_SHELL_0_LINK: static
           PKG_CONFIG_PATH: /usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/aarch64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig
         run: cargo build --release --locked --target ${{ matrix.target }} ${{ matrix.pkgs }}
       - name: Package
