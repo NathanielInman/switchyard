@@ -4675,7 +4675,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "yard"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4691,7 +4691,7 @@ dependencies = [
 
 [[package]]
 name = "yard-board"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -4705,7 +4705,7 @@ dependencies = [
 
 [[package]]
 name = "yard-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "glob",
@@ -4718,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "yard-tray"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "eframe",
