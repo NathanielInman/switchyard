@@ -18,6 +18,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-ebcb8b" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="The Switchyard board open above a waybar icon: eight task tiles with colored lamps, a main-line strip showing one heavy build and one waiting, and a recent strip." width="100%">
+</p>
+
 <table align="center">
   <tr>
     <th></th>
@@ -51,10 +55,6 @@
 </table>
 
 <p align="center"><sub>Every installer finishes with <code>yard setup</code>, which starts Switchyard at login and writes a starter config.</sub></p>
-
-<p align="center">
-  <img src="docs/assets/hero.svg" alt="The Switchyard board open above a waybar icon: eight task tiles with colored lamps, a main-line strip showing one heavy build and one waiting, and a recent strip." width="100%">
-</p>
 
 ---
 
