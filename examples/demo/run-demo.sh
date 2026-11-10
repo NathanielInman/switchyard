@@ -18,6 +18,10 @@ export SWITCHYARD_RUNTIME_DIR="$root/run"
 export PATH="$here/bin:$PATH"
 mkdir -p "$SWITCHYARD_CONFIG_DIR" "$SWITCHYARD_STATE_DIR"
 cp "$here/config.toml" "$SWITCHYARD_CONFIG_DIR/config.toml"
+# A week of believable history, so the History tab has a story on day one.
+if [ ! -f "$SWITCHYARD_STATE_DIR/history/runs.jsonl" ]; then
+  python3 "$here/seed-history.py" "$SWITCHYARD_STATE_DIR" >/dev/null 2>&1 || true
+fi
 bin="${YARD_BIN:-$here/../../target/debug}"
 case "${1:-}" in
   env)
