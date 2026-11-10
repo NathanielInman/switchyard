@@ -200,4 +200,15 @@ fn tasks_run_fail_queue_and_survive_a_restart() {
     sb.cmd().args(["stop", "server"]).output().unwrap();
     let t = sb.wait_for("server", &["idle"], 30);
     assert_eq!(t["last"]["outcome"], "stopped");
+
+    // Every finished run is in the history, with its own log kept.
+    let o = sb.cmd().args(["history", "--json"]).output().unwrap();
+    let h: Value = serde_json::from_slice(&o.stdout).unwrap();
+    let recs = h["records"].as_array().unwrap();
+    assert!(recs.len() >= 5, "{h}");
+    let bad = recs.iter().find(|r| r["task"] == "bad").unwrap();
+    assert_eq!(bad["outcome"], "failed");
+    assert!(bad["error"]["text"].as_str().unwrap_or("").contains("the build broke"));
+    assert!(std::path::Path::new(bad["log"].as_str().unwrap()).exists());
+    assert!(!h["days"].as_array().unwrap().is_empty());
 }
