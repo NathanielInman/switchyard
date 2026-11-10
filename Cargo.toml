@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/yard-core", "crates/yard", "crates/yard-board", "crates/yard-tray"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/NathanielInman/switchyard"
