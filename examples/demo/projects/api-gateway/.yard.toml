@@ -1,0 +1,5 @@
+[task.api-gateway]
+description = "localhost:8080"
+tags = ["projects"]
+pin = 4
+run = "fake-server api-gateway 8080"

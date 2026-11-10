@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Pretends to be a dev server for the Switchyard demo.
+#   fake-server <name> [port] [startup note]
+name="$1"; port="${2:-3000}"; note="${3:-}"
+echo "[$name] listening on http://localhost:$port"
+[ -n "$note" ] && echo "[$name] $note"
+routes=(/api/orders /api/cart /health /api/session /api/products)
+i=0
+while true; do
+  sleep 2
+  i=$((i + 1))
+  echo "$(date +%T) GET ${routes[$((i % 5))]} 200 $((RANDOM % 40 + 3))ms"
+  if (( i == 4 )); then echo "ERROR: unhandled rejection: connect ECONNREFUSED 127.0.0.1:6379"; echo "    at RedisClient.connect (src/cache/redis.ts:57:11)"; fi
+done

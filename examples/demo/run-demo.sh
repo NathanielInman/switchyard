@@ -7,7 +7,7 @@
 #
 # Then, in another shell, point the CLI at it the same way:
 #   source <(examples/demo/run-demo.sh env)
-#   yard ls; yard run lanternfall; yard toggle
+#   yard ls; yard run storefront; yard toggle
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="${YARD_DEMO_ROOT:-/tmp/switchyard-demo}"

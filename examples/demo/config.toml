@@ -9,8 +9,8 @@ min_free = "1G"
 mem = "12G"
 
 [[tab]]
-name = "Games"
-tags = ["games"]
+name = "Projects"
+tags = ["projects"]
 
 [[tab]]
 name = "Deploys"

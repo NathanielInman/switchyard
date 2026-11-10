@@ -1,0 +1,19 @@
+[task.ledger-api]
+description = "compose up"
+tags = ["projects"]
+pin = 2
+heavy = true
+mem = "10G"
+clean = "echo cleaning dist and node_modules/.cache"
+steps = [
+  { name = "tsc", cmd = "fake-build 2 fail-ts" },
+  { name = "docker build", cmd = "fake-build 2" },
+]
+run = "fake-server ledger-api 8081"
+errors = ["typescript"]
+
+[task.migrations]
+description = "staging db"
+tags = ["projects"]
+pin = 6
+steps = ["fake-build 2"]

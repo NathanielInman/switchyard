@@ -1,0 +1,25 @@
+[defaults]
+tags = ["deploy"]
+
+[task.payments-upgrade]
+label = "payments upgrade"
+description = "rolling, no downtime"
+steps = ["fake-build 3", "echo deployed v2.14.1"]
+check = "echo health ok"
+
+[task.payments-restart]
+label = "payments restart"
+description = "drops open connections"
+confirm = "hold"
+steps = ["fake-build 2"]
+
+[task.payments-restore]
+label = "restore backup"
+description = "rewinds the database"
+confirm = "type"
+steps = ["fake-build 2"]
+
+[task.payments-logs]
+label = "payments logs"
+description = "tail the service"
+run = "while true; do echo \"$(date +%T) POST /charges 201\"; sleep 3; done"

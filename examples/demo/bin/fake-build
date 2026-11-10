@@ -1,28 +1,26 @@
 #!/usr/bin/env bash
 # Pretends to be a build tool for the Switchyard demo.
-#   fake-build <seconds> [ok|fail-cs|fail-rust|crash]
+#   fake-build <seconds> [ok|fail-ts|fail-rust|crash]
 secs="${1:-3}"; mode="${2:-ok}"
-echo "  Determining projects to restore..."
-echo "  All projects are up-to-date for restore."
+echo "  Resolving dependencies..."
+echo "  Dependencies are up to date."
 steps=$(( secs * 4 ))
 for ((i = 1; i <= steps; i++)); do
   sleep 0.25
   (( i % 4 == 0 )) && echo "  Compiling unit $i of $steps"
 done
 case "$mode" in
-  fail-cs)
-    echo "Scripts/Combat/HitResolver.cs(212,17): error CS0103: The name 'critRoll' does not exist in the current context [Emberwright.csproj]"
+  fail-ts)
+    echo "src/billing/invoice.ts(212,17): error TS2339: Property 'minimumCharge' does not exist on type 'Plan'."
     echo ""
-    echo "Build FAILED."
-    echo "    0 Warning(s)"
-    echo "    1 Error(s)"
+    echo "Found 1 error in src/billing/invoice.ts:212"
     exit 1 ;;
   fail-rust)
-    echo "error[E0425]: cannot find value \`depth\` in this scope"
-    echo " --> src/floor.rs:88:13"
+    echo "error[E0425]: cannot find value \`route\` in this scope"
+    echo " --> src/router.rs:88:13"
     exit 101 ;;
   crash)
-    echo "ERROR: Parameter \"singleton\" is null."
+    echo "fatal: worker exited unexpectedly"
     kill -ABRT $$ ;;
 esac
 echo "Build succeeded."

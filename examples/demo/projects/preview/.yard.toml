@@ -1,0 +1,15 @@
+[task.preview]
+description = "a branch on a preview URL"
+tags = ["projects"]
+pin = 3
+steps = ["fake-build 2"]
+run = "fake-server preview 4000 'serving branch {branch}'"
+
+[task.preview.params.branch]
+default = "main"
+history = 10
+
+[[task.preview.variants]]
+name = "release"
+label = "Release candidate"
+params = { branch = "release/2.14" }

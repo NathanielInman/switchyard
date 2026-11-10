@@ -1,0 +1,8 @@
+[task.load-test]
+description = "k6 · 500 users"
+tags = ["projects"]
+pin = 8
+heavy = true
+steps = [{ name = "k6 run", cmd = "fake-build 4" }, { name = "gate", cmd = "echo 'PASS p99 142ms (baseline 149ms)'" }]
+notify = "always"
+notify_tail = 1

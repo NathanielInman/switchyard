@@ -1,6 +1,6 @@
-[task.skiff]
+[task.android]
 description = "APK to emulator"
-tags = ["games", "work"]
+tags = ["projects", "mobile"]
 pin = 7
 heavy = true
 steps = [{ name = "assembleDebug", cmd = "fake-build 8" }]

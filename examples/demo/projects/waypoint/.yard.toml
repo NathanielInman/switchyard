@@ -1,8 +1,0 @@
-[task.bench]
-description = "perf gate"
-tags = ["games"]
-pin = 8
-heavy = true
-steps = [{ name = "load bench", cmd = "fake-build 4" }, { name = "gate", cmd = "echo 'PASS p99 14.2ms (baseline 14.9ms)'" }]
-notify = "always"
-notify_tail = 1

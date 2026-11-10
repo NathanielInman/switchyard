@@ -1,5 +1,0 @@
-[task.undertow]
-description = "Menu.tscn"
-tags = ["games"]
-pin = 4
-run = "fake-game undertow"

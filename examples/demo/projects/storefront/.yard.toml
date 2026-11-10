@@ -1,0 +1,30 @@
+[task.storefront]
+description = "next build"
+tags = ["projects"]
+pin = 1
+heavy = true
+mem = "12G"
+steps = [
+  { name = "install", cmd = "fake-build 6" },
+  { name = "next build", cmd = "fake-build 5" },
+]
+run = "fake-server storefront 3000"
+errors = ["typescript"]
+
+[task.storefront.retry]
+step = 2
+on = "signal"
+attempts = 3
+
+[[task.storefront.watch]]
+match = '^ERROR:'
+title = "runtime error"
+urgency = "critical"
+
+[task.docs-site]
+label = "docs-site"
+description = "hugo server"
+tags = ["projects"]
+pin = 5
+steps = ["fake-build 2"]
+run = "fake-server docs-site 1313"
