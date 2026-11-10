@@ -98,18 +98,8 @@
 <text x="943.0" y="643.0" font-size="14" fill="#bf616a" font-weight="700" text-anchor="start" >1</text>
 </g>
 <line x1="974" y1="626" x2="974" y2="650" stroke="#3b4048"/>
-<circle cx="1004" cy="638.0" r="10" fill="none" stroke="#c5c8c6" stroke-width="1.5"/>
-<line x1="1010.0" y1="638.0" x2="1013.0" y2="638.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="1008.2" y1="642.2" x2="1010.4" y2="644.4" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="1004.0" y1="644.0" x2="1004.0" y2="647.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="999.8" y1="642.2" x2="997.6" y2="644.4" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="998.0" y1="638.0" x2="995.0" y2="638.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="999.8" y1="633.8" x2="997.6" y2="631.6" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="1004.0" y1="632.0" x2="1004.0" y2="629.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="1008.2" y1="633.8" x2="1010.4" y2="631.6" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
-<circle cx="1004" cy="638.0" r="3.6" fill="#a3be8c"/>
-<text x="1021.0" y="643.0" font-size="14" fill="#c5c8c6" font-weight="400" text-anchor="start" >54°</text>
-<line x1="1064" y1="626" x2="1064" y2="650" stroke="#3b4048"/>
+<circle cx="1004" cy="638.0" r="7.5" fill="#a3be8c"/>
+<line x1="1034" y1="626" x2="1034" y2="650" stroke="#3b4048"/>
 <text x="1178.0" y="643.0" font-size="14" fill="#c5c8c6" font-weight="400" text-anchor="end" >14:32</text>
 <g class="a" style="animation-name:k4,k5;transform-origin:930px 638.0px"><g transform="translate(542.0,208.0)">
 <rect width="640" height="396" rx="16" fill="#25282c" stroke="#41464e" filter="url(#shadow)"/>
@@ -121,8 +111,11 @@
 <text x="236.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Desk</text>
 <text x="273.2" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >1</text>
 <text x="312.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Shelf</text>
-<rect x="480" y="13" width="148" height="28" rx="8" fill="none" stroke="#41464e"/>
-<text x="494.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >/  to filter</text>
+<circle cx="374" cy="27.5" r="3" fill="#a3be8c"/>
+<text x="383.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Roundhouse</text>
+<text x="466.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >↗</text>
+<rect x="512" y="13" width="116" height="28" rx="8" fill="none" stroke="#41464e"/>
+<text x="526.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >/  to filter</text>
 <rect x="12" y="52" width="616" height="32" rx="8" fill="#ebcb8b" fill-opacity=".07" stroke="#ebcb8b" stroke-opacity=".35"/>
 <circle class="pulse" cx="28" cy="68" r="5" fill="#ebcb8b"/>
 <g class="a" style="animation-name:k6;" opacity="0">

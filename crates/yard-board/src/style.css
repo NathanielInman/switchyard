@@ -52,6 +52,12 @@ window.switchyard list, window.switchyard row { color: @yard_fg; }
 .tabs button:hover { color: @yard_fg; }
 .tabs button.active { background: @yard_tile_hover; color: @yard_fg; }
 .tabs button .count { color: @yard_dim; margin-left: 5px; }
+/* Roundhouse, while it runs: a link to its drawer, dotted with its lamp. */
+.tabs button.link .arrow { color: @yard_dim; }
+.lamp-dot { color: @yard_idle; font-size: 9px; }
+.lamp-dot.calm { color: @yard_go; }
+.lamp-dot.heads-up { color: @yard_caution; }
+.lamp-dot.act { color: @yard_stop; }
 
 entry.search {
   background: transparent;

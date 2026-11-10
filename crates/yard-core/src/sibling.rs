@@ -6,7 +6,7 @@
 //! it uses, so either can be upgraded first. It never links Roundhouse's
 //! crates.
 
-use crate::model::{MachineReason, MachineView};
+use crate::model::{Anchor, MachineReason, MachineView};
 use serde_json::Value;
 
 /// Pulls the lamp out of a Roundhouse snapshot reply.
@@ -34,9 +34,10 @@ pub fn parse_roundhouse(reply: &str) -> Option<MachineView> {
     Some(MachineView { level, reasons })
 }
 
-/// Roundhouse's view of the machine, or `None` when it is not running.
+/// Sends one request line to Roundhouse and returns its reply line, or
+/// `None` when Roundhouse is not running or does not answer in 300 ms.
 #[cfg(unix)]
-pub fn roundhouse() -> Option<MachineView> {
+fn ask_roundhouse(line: &str) -> Option<String> {
     use std::io::{BufRead, BufReader, Write};
     use std::time::Duration;
     let path = crate::paths::roundhouse_socket();
@@ -47,38 +48,35 @@ pub fn roundhouse() -> Option<MachineView> {
     let t = Some(Duration::from_millis(300));
     s.set_read_timeout(t).ok()?;
     s.set_write_timeout(t).ok()?;
-    s.write_all(b"{\"cmd\":\"snapshot\"}\n").ok()?;
-    let mut line = String::new();
-    BufReader::new(s).read_line(&mut line).ok()?;
-    parse_roundhouse(&line)
+    s.write_all(line.as_bytes()).ok()?;
+    s.write_all(b"\n").ok()?;
+    let mut out = String::new();
+    BufReader::new(s).read_line(&mut out).ok()?;
+    Some(out)
+}
+
+/// Roundhouse does not run on macOS or Windows.
+#[cfg(not(unix))]
+fn ask_roundhouse(_line: &str) -> Option<String> {
+    None
+}
+
+/// Roundhouse's view of the machine, or `None` when it is not running.
+pub fn roundhouse() -> Option<MachineView> {
+    parse_roundhouse(&ask_roundhouse(r#"{"cmd":"snapshot"}"#)?)
 }
 
 /// Asks Roundhouse to close its drawer, so only one panel is open at a time.
 /// Does nothing when Roundhouse is not running.
-#[cfg(unix)]
 pub fn roundhouse_hide() {
-    use std::io::{BufRead, BufReader, Write};
-    use std::time::Duration;
-    let path = crate::paths::roundhouse_socket();
-    if !path.exists() {
-        return;
-    }
-    let Ok(mut s) = std::os::unix::net::UnixStream::connect(&path) else { return };
-    let t = Some(Duration::from_millis(300));
-    let _ = s.set_read_timeout(t);
-    let _ = s.set_write_timeout(t);
-    if s.write_all(b"{\"cmd\":\"hide\"}\n").is_ok() {
-        let _ = BufReader::new(s).read_line(&mut String::new());
-    }
+    let _ = ask_roundhouse(r#"{"cmd":"hide"}"#);
 }
 
-#[cfg(not(unix))]
-pub fn roundhouse_hide() {}
-
-/// Roundhouse does not run on Windows yet.
-#[cfg(not(unix))]
-pub fn roundhouse() -> Option<MachineView> {
-    None
+/// Asks Roundhouse to open its drawer from the same icon the board opened
+/// from. Returns false when Roundhouse is not there to ask.
+pub fn roundhouse_show(anchor: Option<&Anchor>) -> bool {
+    let req = serde_json::json!({ "cmd": "show", "anchor": anchor });
+    ask_roundhouse(&req.to_string()).is_some_and(|r| r.contains("\"ok\":true"))
 }
 
 #[cfg(test)]

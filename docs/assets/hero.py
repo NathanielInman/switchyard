@@ -185,13 +185,8 @@ add("</g>")
 
 # Roundhouse, the sibling, right beside it.
 add(f'<line x1="{LAMP_X - 30}" y1="{BAR_Y + 10}" x2="{LAMP_X - 30}" y2="{BAR_Y + BAR_H - 10}" stroke="{BAR_LINE}"/>')
-add(f'<circle cx="{LAMP_X}" cy="{SIG_Y}" r="10" fill="none" stroke="{BAR_FG}" stroke-width="1.5"/>')
-for j in range(8):
-    a = j * math.pi / 4
-    add(f'<line x1="{LAMP_X + math.cos(a) * 6:.1f}" y1="{SIG_Y + math.sin(a) * 6:.1f}" x2="{LAMP_X + math.cos(a) * 9:.1f}" y2="{SIG_Y + math.sin(a) * 9:.1f}" stroke="{BAR_FG}" stroke-width="1.5" stroke-linecap="round"/>')
-add(f'<circle cx="{LAMP_X}" cy="{SIG_Y}" r="3.6" fill="{GO}"/>')
-text(LAMP_X + 17, mid, "54°", 14, BAR_FG)
-add(f'<line x1="{LAMP_X + 60}" y1="{BAR_Y + 10}" x2="{LAMP_X + 60}" y2="{BAR_Y + BAR_H - 10}" stroke="{BAR_LINE}"/>')
+add(f'<circle cx="{LAMP_X}" cy="{SIG_Y}" r="7.5" fill="{GO}"/>')
+add(f'<line x1="{LAMP_X + 30}" y1="{BAR_Y + 10}" x2="{LAMP_X + 30}" y2="{BAR_Y + BAR_H - 10}" stroke="{BAR_LINE}"/>')
 text(W - 22, mid, "14:32", 14, BAR_FG, anchor="end")
 
 # ---------------------------------------------------------------- the board
@@ -214,8 +209,13 @@ for x, label, n in [(136, "Deploys", "4"), (236, "Desk", "1"), (312, "Shelf", ""
     text(x, 32, label, 13, DIM)
     if n:
         text(x + len(label) * 7.8 + 6, 32, n, 13, DIM)
-add(f'<rect x="{BW - 160}" y="13" width="148" height="28" rx="8" fill="none" stroke="{PANEL_LINE}"/>')
-text(BW - 146, 32, "/  to filter", 13, DIM)
+# Roundhouse runs too, so the row ends with a link to its drawer, dotted
+# with its lamp.
+add(f'<circle cx="374" cy="27.5" r="3" fill="{GO}"/>')
+text(383, 32, "Roundhouse", 13, DIM)
+text(383 + 10 * 7.8 + 5, 32, "\u2197", 13, DIM)
+add(f'<rect x="{BW - 128}" y="13" width="116" height="28" rx="8" fill="none" stroke="{PANEL_LINE}"/>')
+text(BW - 114, 32, "/  to filter", 13, DIM)
 
 # Main line strip
 add(f'<rect x="12" y="52" width="{BW - 24}" height="32" rx="8" fill="{CAUTION}" fill-opacity=".07" stroke="{CAUTION}" stroke-opacity=".35"/>')

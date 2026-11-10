@@ -301,7 +301,7 @@ Switchyard tasks to a repo.
 | letter | run that tile | |
 | <kbd>Shift</kbd> + letter | its variants | |
 | <kbd>/</kbd> | filter | |
-| <kbd>Tab</kbd>, <kbd>1</kbd>-<kbd>9</kbd> | switch tabs | |
+| <kbd>Tab</kbd>, <kbd>1</kbd>-<kbd>9</kbd> | switch tabs; the number after Shelf opens Roundhouse | |
 | <kbd>y</kbd> | | copy the error with context |
 | <kbd>e</kbd> | | open the error in your editor |
 | <kbd>r</kbd> | | run again |
@@ -353,8 +353,12 @@ run:
   needs acting on, and the waiting tile says why ("held: Roundhouse says
   /data is 96% full"). It starts on its own once the lamp calms down. Turn it
   off with `mainline.respect_roundhouse = false`.
-- Roundhouse gains a Switchyard tab with the main line and queue, and a button
-  that opens this board from the same icon.
+- Each panel links to the other from the end of its tab row: `● Roundhouse ↗`
+  here, its dot the machine lamp, and `● Switchyard ↗` in Roundhouse's drawer,
+  its dot what Switchyard is doing. A click (or the link's number key) closes
+  one panel and opens the other from the same icon.
+- Roundhouse's Machine tab says when a heavy build explains a busy machine
+  ("Switchyard is building storefront · 1 queued").
 
 ## Status
 

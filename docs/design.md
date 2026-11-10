@@ -227,10 +227,18 @@ What Switchyard uses from Roundhouse:
 |---|---|
 | `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level` and `lamp.reasons[].level`/`text`: holds the main line on `act`, shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
 | `{"cmd":"hide"}` on `rh.sock` | Sent by the board when it opens, so Roundhouse's drawer closes. |
+| `{"cmd":"show","anchor":{...}}` on `rh.sock` | The board's Roundhouse link: the board closes and the drawer opens from the anchor the board opened with. |
+
+The board's tab row ends with a `● Roundhouse ↗` link while `machine` is
+present. The dot is the lamp (`calm`, `heads-up`, `act` as CSS classes on
+`.lamp-dot`). It is not a tab: Tab and Shift+Tab cycle the board's own tabs
+and skip it; its number key and a click open the drawer.
 
 What Roundhouse uses from Switchyard: its `snapshot` (aggregate phase, main
-line, task labels) for a Switchyard tab, and `{"cmd":"show","anchor":...}` for
-a button that opens this board from the same icon.
+line, queue, task labels, and the queue head's `message` while it waits) for
+a Switchyard link in its tab row, dotted with the aggregate phase, and a
+one-line build status on its Machine tab; and `{"cmd":"show","anchor":...}`
+when either is clicked, to open this board from the same icon.
 
 ## History
 
@@ -332,8 +340,9 @@ desc = "count lines of code per language"
 icon = "●"            # text shown by `yard bar`; the CSS class carries state
 ```
 
-When no `[[tab]]` is configured there is one tab, "All". The Shelf tab is
-always last.
+When no `[[tab]]` is configured there is one tab, "All". History and Shelf
+follow the configured tabs, Shelf last; a running Roundhouse adds a link
+after them (see [Siblings](#siblings)).
 
 ## Manifest reference
 
@@ -466,7 +475,7 @@ Events on a subscription are `{"event":"snapshot",...}` (full state),
 | Grid | arrows, Enter | move, run the selected tile |
 | Grid | Space | variants for the selected tile |
 | Grid | `/` | filter |
-| Grid | Tab, Shift+Tab, 1-9 | switch tabs |
+| Grid | Tab, Shift+Tab, 1-9 | switch tabs (the number after Shelf opens Roundhouse while it runs) |
 | Log | `y` | copy the error with context |
 | Log | `e` | open the error location in the editor |
 | Log | `r` | run again |

@@ -140,6 +140,8 @@ pub struct Board {
     last_slow: Cell<Option<Instant>>,
     connected: Cell<bool>,
     gauge_frac: Cell<f64>,
+    /// Where the board last opened from, handed on to Roundhouse.
+    anchor: RefCell<Option<Anchor>>,
 }
 
 fn label(text: &str, class: &str) -> gtk::Label {
@@ -348,6 +350,7 @@ impl Board {
             last_slow: Cell::new(None),
             connected: Cell::new(false),
             gauge_frac: Cell::new(0.0),
+            anchor: RefCell::new(None),
         });
         b.wire();
         let w = Rc::downgrade(&b);
@@ -600,6 +603,7 @@ impl Board {
                 self.window.set_monitor(Some(&m));
             }
         }
+        *self.anchor.borrow_mut() = anchor.clone();
         self.stage.set_anchor(anchor);
         self.close_menu();
         self.search.set_text("");
@@ -845,11 +849,58 @@ impl Board {
             });
             self.tabs_box.append(&b);
         }
+        // Roundhouse, while it runs, is a link after Shelf: its dot is the
+        // machine lamp, and a click hands the anchor to its drawer.
+        if let Some(m) = &s.machine {
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+            let dot = gtk::Label::new(Some("\u{25cf}"));
+            dot.add_css_class("lamp-dot");
+            if matches!(m.level.as_str(), "calm" | "heads-up" | "act") {
+                dot.add_css_class(&m.level);
+            }
+            row.append(&dot);
+            row.append(&gtk::Label::new(Some("Roundhouse")));
+            let arrow = gtk::Label::new(Some("\u{2197}"));
+            arrow.add_css_class("arrow");
+            row.append(&arrow);
+            let b = gtk::Button::new();
+            b.set_child(Some(&row));
+            b.set_focusable(false);
+            b.add_css_class("link");
+            b.set_tooltip_text(Some("Open the Roundhouse drawer"));
+            let w = Rc::downgrade(self);
+            b.connect_clicked(move |_| {
+                if let Some(b) = w.upgrade() {
+                    b.open_roundhouse();
+                }
+            });
+            self.tabs_box.append(&b);
+        }
     }
 
+    /// Closes the board and opens Roundhouse's drawer from the same anchor.
+    fn open_roundhouse(self: &Rc<Self>) {
+        let anchor = self.anchor.borrow().clone();
+        self.hide();
+        std::thread::spawn(move || {
+            yard_core::sibling::roundhouse_show(anchor.as_ref());
+        });
+    }
+
+    /// Tabs by position: the configured tabs, History, Shelf, then the
+    /// Roundhouse link while Roundhouse runs.
     fn select_tab(self: &Rc<Self>, i: usize) {
         let n = self.tabs().len();
         self.close_menu();
+        if i == n + 2 {
+            if self.snap.borrow().as_ref().is_some_and(|s| s.machine.is_some()) {
+                self.open_roundhouse();
+            }
+            return;
+        }
+        if i > n + 1 {
+            return;
+        }
         if i == n {
             self.open_history();
         } else if i > n {
