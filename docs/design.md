@@ -48,21 +48,24 @@ tour; this is the spec.
 ```mermaid
 flowchart LR
   M["Manifests<br/>.yard.toml, tasks.d, script headers"] --> D["yard daemon"]
-  D -- "systemd-run --user" --> U["Transient units<br/>one per phase"]
+  D -- "supervisor" --> U["systemd units, process groups<br/>or Job Objects, one per phase"]
   U -- "progress, exit" --> D
-  D <-- "unix socket, JSON lines" --> B["yard-board<br/>GTK4 layer-shell"]
+  D <-- "local socket, JSON lines" --> B["yard-board (GTK4 layer-shell)<br/>or yard-tray (egui + tray icon)"]
   D <-- socket --> C["yard CLI"]
   D -- socket --> W["yard bar<br/>waybar module"]
   B -. "anchor from" .-> H["Hyprland IPC"]
 ```
 
-There are two binaries:
+There are three binaries:
 
-- **`yard`**: the daemon (`yard daemon`), the CLI, the bar module (`yard bar`)
-  and the in-unit runner (`yard __build`, `yard __launch`). No GUI
-  dependencies.
-- **`yard-board`**: the GTK4 panel. It connects to the daemon and stays
-  resident while hidden, so opening it is only an animation.
+- **`yard`**: the daemon (`yard daemon`), the CLI, the bar module (`yard bar`),
+  `yard setup` and the in-unit runner (`yard __build`, `yard __launch`). No
+  GUI dependencies. Runs on Linux, macOS and Windows.
+- **`yard-board`** (Linux): the GTK4 layer-shell panel. It connects to the
+  daemon and stays resident while hidden, so opening it is only an animation.
+- **`yard-tray`** (macOS, Windows): one resident process with a tray or menu
+  bar icon whose lamp is the aggregate state, and a hidden egui board window
+  that opens at the icon, sized to its panel.
 
 ### The daemon
 
@@ -70,7 +73,20 @@ A single event loop owns all state. Client connections, runner reports and a
 one-second timer push events into one channel, so there are no locks around
 task state.
 
-Every task phase runs as a transient user unit:
+Every task phase runs under a **supervisor**, picked per platform (override
+with `SWITCHYARD_BACKEND=process` on Linux):
+
+| Backend | Where | Memory cap | Priority | Usage from |
+|---|---|---|---|---|
+| systemd | Linux with a user manager | `MemoryMax`, kernel-enforced | `CPUWeight=idle`, nice | the unit's cgroup |
+| process | macOS, Linux without systemd | daemon kills the process tree past the cap | macOS background QoS (`taskpolicy -b`), nice | the process tree |
+| job | Windows | Job Object `JobMemoryLimit`, kernel-enforced | `IDLE_PRIORITY_CLASS` | job accounting |
+
+Every backend leaves tasks running if the daemon exits, and the daemon picks
+them up again from the runs file: by unit name, by process group, or by
+reopening the named job.
+
+On Linux with systemd a phase looks like this:
 
 ```
 systemd-run --user --collect --unit switchyard-<task>-<run>-build \
@@ -78,7 +94,7 @@ systemd-run --user --collect --unit switchyard-<task>-<run>-build \
   --working-directory <dir> --setenv ... -- yard __build <spec.json>
 ```
 
-Why units instead of child processes:
+Why supervised phases instead of plain child processes:
 
 - A restart of the bar or the daemon never kills a running game. The daemon
   re-adopts live units on start from `$XDG_RUNTIME_DIR/switchyard/runs`.
@@ -96,8 +112,9 @@ next build.
 ### The runner
 
 `yard __build` runs the steps in order. For each step it writes a marker line
-to the log (`===== step 2/3: import =====`), runs the command through
-`bash -c` with stdout and stderr appended to the log, applies the retry policy
+to the log (`===== step 2/3: import =====`), runs the command through the
+configured `shell` (bash on Linux and macOS; pwsh, powershell or cmd on
+Windows) with stdout and stderr appended to the log, applies the retry policy
 and reports progress over the socket. When it finishes it writes an exit file
 and reports the result. If it vanishes without an exit file, the daemon asks
 systemd for the unit's `Result`, which is how an out-of-memory kill becomes the
@@ -159,7 +176,7 @@ point. Clicking anywhere outside the panel closes it. With `yard toggle
 
 ### Board
 
-GTK4 with `gtk4-layer-shell` on the overlay layer, keyboard exclusive while
+**Linux.** GTK4 with `gtk4-layer-shell` on the overlay layer, keyboard exclusive while
 open. The panel is a custom widget whose snapshot applies a spring-driven
 scale, offset and opacity around the click origin. Tiles run the same spring
 with a stagger. Lamps pulse while building. State colors change through CSS
@@ -171,7 +188,17 @@ colors with their bar's stylesheet), and the frame clock gives smooth
 springs. The board is a client of the daemon socket, so it can be replaced
 without touching the rest.
 
+**macOS and Windows.** `yard-tray` draws the same board with egui on wgpu
+(Metal, DirectX 12). The tray icon reports its own rectangle on click, so the
+board opens above a bottom taskbar or below the menu bar, centered on the icon
+and clamped to the screen. The window is exactly the size of the panel and
+grows away from its anchor. It hides when it loses focus, like any menu.
+
 ## Files and paths
+
+On Linux and macOS (XDG layout on both, since that is where developers keep
+their dot-files). On Windows the config lives in `%APPDATA%\switchyard` and
+state, logs and run files in `%LOCALAPPDATA%\switchyard`.
 
 | Path | Contents |
 |---|---|
@@ -181,7 +208,7 @@ without touching the rest.
 | `<repo>/.yard.toml` | A repo's own manifest, found through `scan`. |
 | `~/.local/state/switchyard/state.json` | History: last results, durations, parameter history, frecency, shelf choices. |
 | `~/.local/state/switchyard/logs/<task>.log` | Default log location. The previous run is kept as `<task>.log.1`. |
-| `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket. |
+| `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket (macOS: under `$TMPDIR`; Windows: `yard.port`, a localhost port and token). |
 | `$XDG_RUNTIME_DIR/switchyard/runs/` | Run specs, exit files, scratch directories. |
 
 ## Config reference
@@ -382,7 +409,9 @@ Events on a subscription are `{"event":"snapshot",...}` (full state),
 
 ## Security notes
 
-- The socket is created with mode 0600 inside `$XDG_RUNTIME_DIR`.
+- The socket is created with mode 0600 inside `$XDG_RUNTIME_DIR`. On Windows
+  the daemon listens on 127.0.0.1 only, and every connection must first send a
+  random token from a file in the user's own `%LOCALAPPDATA%`.
 - Manifests run commands. Switchyard only reads manifests from paths you list
   in `scan`, `scripts` and `tasks.d`; a cloned repo's `.yard.toml` does
   nothing until its directory matches a `scan` entry.
