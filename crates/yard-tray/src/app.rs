@@ -23,6 +23,7 @@ pub enum Msg {
     Disconnected,
     Reply(Reply),
     Shelf(ShelfData),
+    History(yard_core::protocol::HistoryData),
 }
 
 #[derive(Clone, PartialEq)]
@@ -30,6 +31,8 @@ enum Mode {
     Grid,
     Log(String),
     Shelf,
+    History,
+    Strip(String),
 }
 
 #[derive(Clone)]
@@ -110,6 +113,8 @@ pub struct App {
     shelf: Option<ShelfData>,
     shelf_sel: usize,
     shelf_rows: Vec<ShelfRow>,
+    hist: crate::hist::HistState,
+    history_rev: u64,
     order: Vec<String>,
     hints: Vec<(char, String)>,
     was_focused: bool,
@@ -226,6 +231,8 @@ impl App {
             shelf: None,
             shelf_sel: 0,
             shelf_rows: vec![],
+            hist: Default::default(),
+            history_rev: u64::MAX,
             order: vec![],
             hints: vec![],
             was_focused: false,
@@ -375,10 +382,16 @@ impl App {
             Msg::Shelf(d) => {
                 self.shelf = Some(d);
             }
+            Msg::History(d) => self.hist.set(d),
             Msg::Event(ev) => match ev {
                 Event::Snapshot(s) => {
                     self.skew = s.now - now();
+                    let rev = s.history_rev;
                     self.snap = Some(*s);
+                    if rev != self.history_rev && matches!(self.mode, Mode::History | Mode::Strip(_)) {
+                        self.history_rev = rev;
+                        self.fetch_history();
+                    }
                 }
                 Event::Show { anchor } => self.show(anchor),
                 Event::Hide => self.hide(),
@@ -415,11 +428,52 @@ impl App {
         list
     }
 
+    fn fetch_history(&self) {
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            if let Ok(r) = yard_core::protocol::request(&Request::History { id: None, limit: Some(800) }) {
+                if let Some(h) = r.history {
+                    let _ = tx.send(Msg::History(*h));
+                    ctx.request_repaint();
+                }
+            }
+        });
+    }
+
+    fn history_action(&mut self, a: crate::hist::Action) {
+        use crate::hist::Action;
+        match a {
+            Action::OpenStrip(t) => {
+                self.hist.open_strip(&t);
+                self.mode = Mode::Strip(t);
+            }
+            Action::Replay(r) => {
+                let confirm = self.task(&r.task).map(|v| v.confirm).unwrap_or_default();
+                self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
+            }
+            Action::OpenLog(r) => {
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None });
+                self.hide();
+            }
+            Action::CopyError(r) => {
+                if let Some(e) = &r.error {
+                    self.ctx.copy_text(e.text.clone());
+                    self.toast("Copied the error", false);
+                }
+            }
+        }
+    }
+
     fn select_tab(&mut self, i: usize) {
         let n = self.tabs().len();
         self.menu = None;
         self.selected = None;
-        if i >= n {
+        if i == n {
+            self.mode = Mode::History;
+            self.history_rev = self.snap.as_ref().map(|s| s.history_rev).unwrap_or(0);
+            self.fetch_history();
+        } else if i > n {
             self.mode = Mode::Shelf;
             self.shelf_sel = 0;
             if self.shelf.is_none() {
@@ -834,6 +888,42 @@ impl App {
                 }
                 continue;
             }
+            if let Mode::Strip(_) = self.mode {
+                match key {
+                    Key::Escape | Key::Backspace => self.mode = Mode::History,
+                    Key::ArrowLeft => self.hist.step_run(-1),
+                    Key::ArrowRight => self.hist.step_run(1),
+                    _ => {
+                        if let Some(r) = self.hist.selected_run() {
+                            use crate::hist::Action;
+                            match letter(key) {
+                                Some('r') => self.history_action(Action::Replay(r)),
+                                Some('l') => self.history_action(Action::OpenLog(r)),
+                                Some('y') => self.history_action(Action::CopyError(r)),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+            if self.mode == Mode::History && !matches!(key, Key::Escape | Key::Tab) {
+                match key {
+                    Key::ArrowDown | Key::J => self.hist.move_sel(1),
+                    Key::ArrowUp | Key::K => self.hist.move_sel(-1),
+                    Key::Enter | Key::Space => {
+                        let i = self.hist.selected;
+                        self.hist.toggle(i);
+                    }
+                    Key::O | Key::ArrowRight => {
+                        if let Some(t) = self.hist.selected_task() {
+                            self.history_action(crate::hist::Action::OpenStrip(t));
+                        }
+                    }
+                    _ => {}
+                }
+                continue;
+            }
             if let Mode::Log(_) = self.mode {
                 if key == Key::Escape {
                     self.log_key('\u{1b}');
@@ -854,8 +944,12 @@ impl App {
                     continue;
                 }
                 Key::Tab => {
-                    let n = self.tabs().len() + 1;
-                    let cur = if self.mode == Mode::Shelf { n - 1 } else { self.tab };
+                    let n = self.tabs().len() + 2;
+                    let cur = match self.mode {
+                        Mode::Shelf => n - 1,
+                        Mode::History | Mode::Strip(_) => n - 2,
+                        _ => self.tab,
+                    };
                     self.select_tab(if shift { (cur + n - 1) % n } else { (cur + 1) % n });
                     continue;
                 }
@@ -961,8 +1055,13 @@ impl App {
                 .collect();
             let shelf_n = self.snap.as_ref().map(|s| s.tasks.iter().filter(|t| t.shelf || t.stale).count()).unwrap_or(0)
                 + self.shelf.as_ref().map(|d| d.tools.len()).unwrap_or(0);
+            entries.push(("History".into(), 0));
             entries.push(("Shelf".into(), shelf_n));
-            let active = if self.mode == Mode::Shelf { entries.len() - 1 } else { self.tab };
+            let active = match self.mode {
+                Mode::Shelf => entries.len() - 1,
+                Mode::History | Mode::Strip(_) => entries.len() - 2,
+                _ => self.tab,
+            };
             for (i, (name, n)) in entries.into_iter().enumerate() {
                 let text = if n > 0 { format!("{name} {n}") } else { name };
                 let galley = ui.painter().layout_no_wrap(text.clone(), mono(12.5), FG);
@@ -1323,6 +1422,8 @@ impl App {
                 Mode::Grid => "a-z run   ⇧ variants   / filter   tab next   esc close".into(),
                 Mode::Log(_) => self.log.as_ref().map(|l| format!("{}   t tail in a terminal", l.path.display())).unwrap_or_default(),
                 Mode::Shelf => "↵ run   m man page   / filter   tab next   esc close".into(),
+                Mode::History => "↑↓ move   ↵ expand   o open runs   tab next   esc close".into(),
+                Mode::Strip(_) => "←→ runs   r replay   l log   y copy error   esc back".into(),
             }
         };
         p.text(pos2(rect.left() + 4.0, rect.center().y + 2.0), Align2::LEFT_CENTER, text, mono(11.0), DIM);
@@ -1513,6 +1614,17 @@ impl eframe::App for App {
                         Mode::Grid => self.grid(ui, max_h),
                         Mode::Log(_) => self.log_view(ui, max_h),
                         Mode::Shelf => self.shelf_view(ui, max_h),
+                        Mode::History => {
+                            if let Some(a) = self.hist.feed(ui, max_h) {
+                                self.history_action(a);
+                            }
+                        }
+                        Mode::Strip(_) => {
+                            let now = self.now();
+                            if let Some(a) = self.hist.strip(ui, now) {
+                                self.history_action(a);
+                            }
+                        }
                     }
                     self.recent(ui);
                     self.footer(ui);

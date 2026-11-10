@@ -7,6 +7,7 @@
 
 mod app;
 mod draw;
+mod hist;
 #[cfg(any(windows, target_os = "macos"))]
 mod tray;
 
