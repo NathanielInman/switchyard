@@ -144,7 +144,7 @@ browser downloads are.
 
 | Platform | Needs | Starts at login through |
 |---|---|---|
-| Linux | GTK 4.12+ and `gtk4-layer-shell` for the board; systemd for kernel-enforced caps (other inits work with daemon-enforced caps) | systemd user units |
+| Linux | GTK 4.12+ and `gtk4-layer-shell` 1.0+ for the board (packaged on Arch, Fedora, Debian 13 and Ubuntu 25.04 or newer); systemd for kernel-enforced caps, other inits get daemon-enforced caps | systemd user units |
 | macOS | macOS 11 or newer | LaunchAgents |
 | Windows | Windows 10 or newer | the `Run` key in your user registry |
 
