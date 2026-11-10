@@ -218,12 +218,15 @@ nothing from each other.
    unknown fields ignored, so they upgrade in any order.
 4. **Handoff keeps the anchor.** A `show` with the same `anchor` opens the
    other panel from the same icon.
+5. **One panel at a time.** Whichever panel opens sends `{"cmd":"hide"}` to
+   the other, so clicking the other icon in the bar never leaves both open.
 
 What Switchyard uses from Roundhouse:
 
 | Request | Used for |
 |---|---|
 | `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level` and `lamp.reasons[].level`/`text`: holds the main line on `act`, shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
+| `{"cmd":"hide"}` on `rh.sock` | Sent by the board when it opens, so Roundhouse's drawer closes. |
 
 What Roundhouse uses from Switchyard: its `snapshot` (aggregate phase, main
 line, task labels) for a Switchyard tab, and `{"cmd":"show","anchor":...}` for

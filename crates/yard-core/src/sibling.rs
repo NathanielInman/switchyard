@@ -53,6 +53,28 @@ pub fn roundhouse() -> Option<MachineView> {
     parse_roundhouse(&line)
 }
 
+/// Asks Roundhouse to close its drawer, so only one panel is open at a time.
+/// Does nothing when Roundhouse is not running.
+#[cfg(unix)]
+pub fn roundhouse_hide() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::time::Duration;
+    let path = crate::paths::roundhouse_socket();
+    if !path.exists() {
+        return;
+    }
+    let Ok(mut s) = std::os::unix::net::UnixStream::connect(&path) else { return };
+    let t = Some(Duration::from_millis(300));
+    let _ = s.set_read_timeout(t);
+    let _ = s.set_write_timeout(t);
+    if s.write_all(b"{\"cmd\":\"hide\"}\n").is_ok() {
+        let _ = BufReader::new(s).read_line(&mut String::new());
+    }
+}
+
+#[cfg(not(unix))]
+pub fn roundhouse_hide() {}
+
 /// Roundhouse does not run on Windows yet.
 #[cfg(not(unix))]
 pub fn roundhouse() -> Option<MachineView> {

@@ -643,6 +643,8 @@ impl Board {
         if !was_visible {
             self.send_quiet(Request::BoardVisible { visible: true });
             self.send_quiet(Request::Ack { phase: AckPhase::Open, id: None });
+            // One panel at a time: opening the board closes Roundhouse's drawer.
+            std::thread::spawn(yard_core::sibling::roundhouse_hide);
         }
         self.start_ticker();
     }
