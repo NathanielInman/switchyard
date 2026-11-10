@@ -342,6 +342,20 @@ anything. The board is a separate client that stays resident while hidden, so
 opening it is only an animation. Design notes and the protocol are in
 [docs/design.md](docs/design.md).
 
+## Siblings
+
+Switchyard has a sibling, [Roundhouse](https://github.com/NathanielInman/roundhouse):
+one lamp in the bar that opens a drawer with CPU, GPU, memory pressure,
+network, every disk and share, and memory by app. Each works alone. When both
+run:
+
+- Switchyard holds the next heavy build while Roundhouse says the machine
+  needs acting on, and the waiting tile says why ("held: Roundhouse says
+  /data is 96% full"). It starts on its own once the lamp calms down. Turn it
+  off with `mainline.respect_roundhouse = false`.
+- Roundhouse gains a Switchyard tab with the main line and queue, and a button
+  that opens this board from the same icon.
+
 ## Status
 
 Switchyard is young and built for one person's desktop first: Arch,
