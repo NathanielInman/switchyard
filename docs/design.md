@@ -194,6 +194,34 @@ board opens above a bottom taskbar or below the menu bar, centered on the icon
 and clamped to the screen. The window is exactly the size of the panel and
 grows away from its anchor. It hides when it loses focus, like any menu.
 
+## History
+
+Every finished run appends one JSON line to
+`~/.local/state/switchyard/history/runs.jsonl` (outcome and exit code, the
+first error, each step's time and attempts, time in the main-line queue, peak
+memory and the cap, params and variant, the commit and branch at start) and
+keeps a copy of the end of its log under `history/logs/<task>/<run>.log`, the
+newest 20 per task. The file is trimmed by half past 8 MB.
+
+The daemon answers `{"cmd":"history"}` with the records, the episode feed and
+the week's numbers, computed in its local timezone:
+
+- **Episodes.** Per task and per day, runs fold by outcome. Consecutive passes
+  are one line ("9 ok"). A failure streak followed by a pass is one line
+  ("broken for 18m, fixed by 3f2a1c"), naming the error code and file. A streak
+  with no pass yet stays red ("still red").
+- **Callouts.** A passing episode is compared with the ten passes before it: 20%
+  slower or more names the step that grew ("+23% next build"); retries and
+  queue waits over a minute get a chip.
+- **The week.** Time building, time waiting on the main line, the flakiest
+  step (most retries) and the task that slowed down the most.
+
+Both boards show the feed as a History tab and a task's runs as a strip: one
+bar per run, height for time, color for outcome, the middle half of passing
+runs shaded as "usual". The card for a run shows where its time went, peak
+memory, queue time, the commit (or the last green commit for a failure), and
+replays it with the same params or opens that run's own log.
+
 ## Files and paths
 
 On Linux and macOS (XDG layout on both, since that is where developers keep
