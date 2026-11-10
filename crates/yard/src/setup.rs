@@ -25,10 +25,46 @@ mem = "12G"       # memory cap for each heavy build
 "#;
 
 fn bin_dir() -> PathBuf {
-    std::env::current_exe()
+    let dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| paths::home().join(".local/bin"))
+        .unwrap_or_else(|| paths::home().join(".local/bin"));
+    stable_dir(&dir)
+}
+
+/// Package managers install into versioned directories that the next upgrade
+/// deletes. Login items must point at the stable link instead:
+/// Homebrew's `<prefix>/bin`, Scoop's `apps/switchyard/current`.
+fn stable_dir(dir: &Path) -> PathBuf {
+    let s = dir.to_string_lossy().to_string();
+    if let Some(i) = s.find("/Cellar/") {
+        return PathBuf::from(format!("{}/bin", &s[..i]));
+    }
+    let lower = s.to_lowercase().replace('/', "\\");
+    if let Some(i) = lower.find("\\apps\\switchyard\\") {
+        let base = &s[..i + "\\apps\\switchyard\\".len()];
+        return PathBuf::from(format!("{base}current"));
+    }
+    dir.to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_dirs() {
+        assert_eq!(stable_dir(Path::new("/opt/homebrew/Cellar/switchyard/0.1.0/bin")), PathBuf::from("/opt/homebrew/bin"));
+        assert_eq!(
+            stable_dir(Path::new("/home/linuxbrew/.linuxbrew/Cellar/switchyard/0.2.0/bin")),
+            PathBuf::from("/home/linuxbrew/.linuxbrew/bin")
+        );
+        assert_eq!(
+            stable_dir(Path::new(r"C:\Users\n\scoop\apps\switchyard\0.1.0")),
+            PathBuf::from(r"C:\Users\n\scoop\apps\switchyard\current")
+        );
+        assert_eq!(stable_dir(Path::new("/home/n/.local/bin")), PathBuf::from("/home/n/.local/bin"));
+    }
 }
 
 fn bin(name: &str) -> PathBuf {
