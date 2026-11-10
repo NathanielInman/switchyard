@@ -555,6 +555,17 @@ impl Board {
         self.render(true);
         self.window.set_visible(true);
         self.window.present();
+        // GTK focuses the first focusable widget (the filter box) on map;
+        // keys belong to the hints until "/" is pressed.
+        GtkWindowExt::set_focus(&self.window, None::<&gtk::Widget>);
+        let w = Rc::downgrade(self);
+        glib::idle_add_local_once(move || {
+            if let Some(b) = w.upgrade() {
+                if b.search.text().is_empty() {
+                    GtkWindowExt::set_focus(&b.window, None::<&gtk::Widget>);
+                }
+            }
+        });
         self.spring.play_in(0);
         self.grid_scroller.vadjustment().set_value(0.0);
         if !was_visible {
@@ -1570,6 +1581,21 @@ impl Board {
             return Proceed;
         }
         let ch = key.to_unicode();
+        if std::env::var_os("SWITCHYARD_DEBUG").is_some() {
+            let mode = match &*self.mode.borrow() {
+                Mode::Grid => "grid".to_string(),
+                Mode::Log(id) => format!("log {id}"),
+                Mode::Shelf => "shelf".to_string(),
+            };
+            eprintln!(
+                "key {:?} state {:?} mode {mode} menu {} search {} page {:?}",
+                key.name(),
+                state,
+                self.menu.borrow().is_some(),
+                self.search_focused(),
+                self.stack.visible_child_name()
+            );
+        }
         let ctrl = state.contains(gdk::ModifierType::CONTROL_MASK);
         let esc = key == gdk::Key::Escape;
 
