@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/yard-core", "crates/yard", "crates/yard-board"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/NathanielInman/switchyard"
+authors = ["Nathaniel Inman"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+regex = "1"
+anyhow = "1"
+glob = "0.3"
+libc = "0.2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true
