@@ -6,10 +6,51 @@
 
 <p align="center">
   <b>A dispatch board for the scripts you keep writing.</b><br>
-  Builds, launches, deploys and one-off scripts, one click from your Wayland bar.<br>
+  Builds, launches, deploys and one-off scripts, one click from your bar, menu bar or tray.<br>
   Live state on every task, logs that open on the first real error,<br>
-  and a queue that keeps heavy builds from freezing your desktop.
+  and a queue that keeps heavy builds from freezing your machine.
 </p>
+
+<p align="center">
+  <a href="https://github.com/NathanielInman/switchyard/actions/workflows/ci.yml"><img src="https://github.com/NathanielInman/switchyard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/NathanielInman/switchyard/releases/latest"><img src="https://img.shields.io/github/v/release/NathanielInman/switchyard?color=88c0d0&amp;label=release" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-a3be8c" alt="Linux, macOS and Windows">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-ebcb8b" alt="MIT license"></a>
+</p>
+
+<table align="center">
+  <tr>
+    <th></th>
+    <th>🐧 Linux</th>
+    <th>🍎 macOS</th>
+    <th>🪟 Windows</th>
+  </tr>
+  <tr>
+    <td><b>Install</b></td>
+    <td colspan="2" align="center"><code>curl -fsSL https://raw.githubusercontent.com/NathanielInman/switchyard/main/install.sh | sh</code></td>
+    <td><code>irm https://raw.githubusercontent.com/NathanielInman/switchyard/main/install.ps1 | iex</code></td>
+  </tr>
+  <tr>
+    <td><b>Or with</b></td>
+    <td>AUR <code>switchyard</code> (<a href="packaging/aur">PKGBUILD</a>)</td>
+    <td><code>brew tap nathanielinman/switchyard https://github.com/NathanielInman/switchyard</code><br><code>brew install switchyard</code></td>
+    <td><code>scoop bucket add switchyard https://github.com/NathanielInman/switchyard</code><br><code>scoop install switchyard</code></td>
+  </tr>
+  <tr>
+    <td><b>The board</b></td>
+    <td>A layer-shell panel that grows out of your waybar icon</td>
+    <td>A menu bar icon that opens the board</td>
+    <td>A tray icon that opens the board</td>
+  </tr>
+  <tr>
+    <td><b>Tasks run in</b></td>
+    <td>systemd user units, kernel memory caps</td>
+    <td>background-priority process groups, memory cap enforced by the daemon</td>
+    <td>Job Objects, hard memory cap, idle priority</td>
+  </tr>
+</table>
+
+<p align="center"><sub>Every installer finishes with <code>yard setup</code>, which starts Switchyard at login and writes a starter config.</sub></p>
 
 <p align="center">
   <img src="docs/assets/hero.svg" alt="The Switchyard board open above a waybar icon: eight task tiles with colored lamps, a main-line strip showing one heavy build and one waiting, and a recent strip." width="100%">
@@ -95,24 +136,42 @@ cargo build && examples/demo/run-demo.sh
 
 ## Install
 
-Switchyard needs Linux with systemd, a Wayland compositor with layer-shell
-(Hyprland gets the anchoring), GTK 4.12 or newer and `gtk4-layer-shell`.
+The one-liners at the top download the latest release for your machine,
+put `yard` and its board in `~/.local/bin` (or `%LOCALAPPDATA%\Programs\switchyard`
+on Windows) and run `yard setup`. Nothing needs an app store, and nothing is
+quarantined: files fetched by `curl`, `brew` or `scoop` are not flagged the way
+browser downloads are.
+
+| Platform | Needs | Starts at login through |
+|---|---|---|
+| Linux | GTK 4.12+ and `gtk4-layer-shell` for the board; systemd for kernel-enforced caps (other inits work with daemon-enforced caps) | systemd user units |
+| macOS | macOS 11 or newer | LaunchAgents |
+| Windows | Windows 10 or newer | the `Run` key in your user registry |
 
 ```sh
-# Arch
-sudo pacman -S --needed gtk4 gtk4-layer-shell libnotify rust
-
-git clone https://github.com/NathanielInman/switchyard
-cd switchyard
-./install.sh            # builds, installs to ~/.local/bin, enables the user units
+# Arch: the board's libraries
+sudo pacman -S --needed gtk4 gtk4-layer-shell libnotify
+# Debian and Ubuntu
+sudo apt install libgtk-4-1 libgtk4-layer-shell0 libnotify-bin
 ```
 
-`install.sh` runs `cargo build --release`, copies `yard` and `yard-board` to
-`~/.local/bin`, installs `switchyard.service` and `switchyard-board.service`
-as user units and starts them. Run `yard doctor` afterwards to check the
-setup.
+**From source** (any platform with Rust):
+
+```sh
+git clone https://github.com/NathanielInman/switchyard
+cd switchyard
+./install.sh            # builds, installs to ~/.local/bin, runs `yard setup`
+```
+
+`yard doctor` checks the setup; `yard setup --uninstall` removes the login
+items and leaves your config alone.
 
 ## Quick start
+
+On **macOS and Windows** there is nothing to wire up: the signal is in your
+menu bar or tray after `yard setup`. Skip to step 3.
+
+On **Linux**:
 
 **1. Put the signal in your bar.** In your waybar config:
 
@@ -145,7 +204,8 @@ hl.bind("SUPER + Y", hl.dsp.exec_cmd("~/.local/bin/yard toggle --center"))
 
 or the classic syntax: `bind = SUPER, Y, exec, ~/.local/bin/yard toggle --center`.
 
-**3. Tell it where your code is.** `~/.config/switchyard/config.toml`:
+**3. Tell it where your code is.** `~/.config/switchyard/config.toml`
+(`%APPDATA%\switchyard\config.toml` on Windows):
 
 ```toml
 scan = ["~/code/*"]
@@ -246,24 +306,27 @@ window.switchyard { font-family: "Iosevka", monospace; }
 ```mermaid
 flowchart LR
   M["Manifests"] --> D["yard daemon"]
-  D -- "systemd-run --user" --> U["Transient units"]
+  D -- "supervisor" --> U["systemd units · process groups · Job Objects"]
   U -- "progress, exit" --> D
-  D <-- "unix socket" --> B["yard-board (GTK4)"]
+  D <-- "local socket" --> B["yard-board (Linux) · yard-tray (macOS, Windows)"]
   D -- "socket" --> W["yard bar (waybar)"]
-  B -. "anchor" .-> H["Hyprland IPC"]
+  B -. "anchor" .-> H["Hyprland IPC · tray icon position"]
 ```
 
-The daemon owns all state in one event loop. Each task phase runs as a
-transient systemd user unit, so caps and priorities are the kernel's job and
-memory use comes straight from the unit's cgroup. The board is a separate
-client that stays resident while hidden, so opening it is only an animation.
-Design notes and the protocol are in [docs/design.md](docs/design.md).
+The daemon owns all state in one event loop. Each task phase runs under the
+platform's own supervisor: a transient systemd user unit on Linux, a process
+group at background priority on macOS, a Job Object on Windows. Each keeps the
+task alive if the daemon restarts and reports its memory use without spawning
+anything. The board is a separate client that stays resident while hidden, so
+opening it is only an animation. Design notes and the protocol are in
+[docs/design.md](docs/design.md).
 
 ## Status
 
 Switchyard is young and built for one person's desktop first: Arch,
-Hyprland, waybar. Other wlroots compositors should work without the anchoring.
-Issues and pull requests are welcome.
+Hyprland, waybar. CI builds and runs the end-to-end tests on Linux, macOS and
+Windows on every push; other wlroots compositors get the board without the
+anchoring. Issues and pull requests are welcome.
 
 ## License
 
