@@ -201,6 +201,9 @@ without touching the rest.
 board opens above a bottom taskbar or below the menu bar, centered on the icon
 and clamped to the screen. The window is exactly the size of the panel and
 grows away from its anchor. It hides when it loses focus, like any menu.
+One `yard-tray` runs per user: it holds a lock on `tray.lock` in the runtime
+directory, and a second launch (a taskbar pin, the Start menu) asks the
+daemon to show the running one's board, then exits.
 
 ## Siblings
 
@@ -284,6 +287,7 @@ state, logs and run files in `%LOCALAPPDATA%\switchyard`.
 | `~/.local/state/switchyard/logs/<task>.log` | Default log location. The previous run is kept as `<task>.log.1`. |
 | `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket (macOS: under `$TMPDIR`; Windows: `yard.port`, a localhost port and token). |
 | `$XDG_RUNTIME_DIR/switchyard/runs/` | Run specs, exit files, scratch directories. |
+| `$XDG_RUNTIME_DIR/switchyard/tray.lock` | Held by the running `yard-tray`, so a second launch opens its board instead. |
 
 ## Config reference
 

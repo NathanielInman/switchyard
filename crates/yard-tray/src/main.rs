@@ -20,6 +20,14 @@ fn main() -> eframe::Result {
         return Ok(());
     }
     let show_now = args.iter().any(|a| a == "--show") || cfg!(not(any(windows, target_os = "macos")));
+    // One tray per user. A second launch, say from a taskbar pin or the Start
+    // menu, opens the running one's board instead of adding a second icon.
+    let lock = claim();
+    if matches!(lock, Err(std::fs::TryLockError::WouldBlock)) {
+        let _ = yard_core::protocol::request(&yard_core::protocol::Request::Show { anchor: None });
+        return Ok(());
+    }
+    let _lock = lock.ok();
     ensure_daemon();
 
     let viewport = eframe::egui::ViewportBuilder::default()
@@ -54,6 +62,16 @@ pub fn sibling(name: &str) -> std::path::PathBuf {
         }
     }
     file.into()
+}
+
+/// Locks tray.lock in the runtime dir for as long as this process lives; the
+/// OS drops the lock when it exits, however it exits.
+fn claim() -> Result<std::fs::File, std::fs::TryLockError> {
+    let dir = yard_core::paths::runtime_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    let f = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join("tray.lock")).map_err(std::fs::TryLockError::Error)?;
+    f.try_lock()?;
+    Ok(f)
 }
 
 /// Starts the daemon when nothing answers.
