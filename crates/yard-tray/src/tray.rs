@@ -26,7 +26,8 @@ const RED: [u8; 3] = [0xbf, 0x61, 0x6a];
 const AMBER: [u8; 3] = [0xeb, 0xcb, 0x8b];
 const GREEN: [u8; 3] = [0xa3, 0xbe, 0x8c];
 const FROST: [u8; 3] = [0x88, 0xc0, 0xd0];
-const DARK: [u8; 3] = [0x4c, 0x56, 0x6a];
+/// The housing's rim: light, so the dark head reads on a dark taskbar too.
+const RIM: [u8; 3] = [0xd8, 0xde, 0xe9];
 
 /// Draws a 32x32 signal head: a rounded housing with three lamps.
 fn signal(lit: [Option<[u8; 3]>; 3]) -> Icon {
@@ -54,9 +55,10 @@ fn signal(lit: [Option<[u8; 3]>; 3]) -> Icon {
             let inside = 1.0 - (d - r + 0.5).clamp(0.0, 1.0);
             if inside > 0.0 {
                 put(x, y, [0x1b, 0x1d, 0x20], inside);
-                let edge = (1.0 - ((d - r + 1.0).abs())).clamp(0.0, 1.0);
-                if edge > 0.0 {
-                    put(x, y, DARK, edge);
+                // The outer 2px, so it survives the 16px tray at 100%.
+                let rim = (d - r + 2.5).clamp(0.0, 1.0) * inside;
+                if rim > 0.0 {
+                    put(x, y, RIM, rim);
                 }
             }
         }
