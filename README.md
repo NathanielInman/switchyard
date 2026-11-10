@@ -41,6 +41,24 @@ Switchyard replaces that pile with one small daemon and one panel:
 - **It opens from where you clicked.** The board springs out of the bar icon,
   wherever your bar is.
 
+## The real thing
+
+These are screenshots of the board running against the fake projects in
+[`examples/demo`](examples/demo), which you can try without touching your own
+setup:
+
+```sh
+cargo build && examples/demo/run-demo.sh
+```
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><img src="docs/assets/screens/grid-shot.png" alt="The board: one heavy build on the main line with another waiting, two games running with memory sparklines, a failed build in red."><br><sub>One heavy build on the main line, the next one queued, two games running, a failure waiting to be read.</sub></td>
+    <td width="33%" valign="top"><img src="docs/assets/screens/log-shot.png" alt="The failed task's log with the C# error highlighted and action buttons."><br><sub>A failure opens on its first real error.</sub></td>
+    <td width="33%" valign="top"><img src="docs/assets/screens/menu-shot.png" alt="A task's variants menu: restart, a variant, recent seeds to replay, and built-in actions."><br><sub>Shift plus a letter: variants, replayable seeds, and everything else a task can do.</sub></td>
+  </tr>
+</table>
+
 ## A closer look
 
 <table>
