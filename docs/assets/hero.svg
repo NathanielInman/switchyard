@@ -1,78 +1,284 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="1200" height="660" font-family="JetBrains Mono, DejaVu Sans Mono, Menlo, Consolas, monospace" xml:space="preserve">
-<defs><radialGradient id="glow-go"><stop offset="0" stop-color="#a3be8c" stop-opacity=".55"/><stop offset="1" stop-color="#a3be8c" stop-opacity="0"/></radialGradient><radialGradient id="glow-caution"><stop offset="0" stop-color="#ebcb8b" stop-opacity=".55"/><stop offset="1" stop-color="#ebcb8b" stop-opacity="0"/></radialGradient><radialGradient id="glow-stop"><stop offset="0" stop-color="#bf616a" stop-opacity=".55"/><stop offset="1" stop-color="#bf616a" stop-opacity="0"/></radialGradient><radialGradient id="glow-frost"><stop offset="0" stop-color="#88c0d0" stop-opacity=".55"/><stop offset="1" stop-color="#88c0d0" stop-opacity="0"/></radialGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".7"/></filter><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121418"/><stop offset="1" stop-color="#0c0d0f"/></linearGradient><radialGradient id="haze1" cx=".8" cy="0" r=".7"><stop offset="0" stop-color="#88c0d0" stop-opacity=".12"/><stop offset="1" stop-color="#88c0d0" stop-opacity="0"/></radialGradient><radialGradient id="haze2" cx=".05" cy="1" r=".6"><stop offset="0" stop-color="#b48ead" stop-opacity=".10"/><stop offset="1" stop-color="#b48ead" stop-opacity="0"/></radialGradient></defs>
-<rect width="1200" height="660" rx="18" fill="url(#wall)"/>
-<rect width="1200" height="660" rx="18" fill="url(#haze1)"/>
-<rect width="1200" height="660" rx="18" fill="url(#haze2)"/>
-<rect x="40" y="48" width="470" height="420" rx="10" fill="#131518" stroke="#23262b"/>
-<text x="58" y="80" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >~/code/ledger-api  main ● 3</text>
-<text x="58" y="100" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >❯ nvim src/billing/invoice.ts</text>
-<text x="58" y="120" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" ></text>
-<text x="58" y="140" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  208   const subtotal = sumLines(invoice.lines);</text>
-<text x="58" y="160" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  209   if (subtotal &lt; plan.minimumCharge) {</text>
-<text x="58" y="180" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  210     invoice.adjustments.push(</text>
-<text x="58" y="200" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  211       minimumCharge(plan, subtotal),</text>
-<text x="58" y="220" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  212     );</text>
-<text x="58" y="240" font-size="12" fill="#4f5661" font-weight="400" text-anchor="start" >  213   }</text>
-<path d="M0 630 H1200 V642 A18 18 0 0 1 1182 660 H18 A18 18 0 0 1 0 642 Z" fill="#282a2e"/>
-<text x="19" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="middle" >1</text>
-<text x="43" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="middle" >2</text>
-<text x="67" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="middle" >3</text>
-<rect x="80" y="630" width="22" height="30" fill="#373b41"/>
-<rect x="80" y="657" width="22" height="3" fill="#81a1c1"/>
-<text x="91" y="650" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="middle" >4</text>
-<text x="115" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="middle" >5</text>
-<text x="139" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="middle" >6</text>
-<text x="170" y="650" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="start" >nvim</text>
-<text x="880" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="start" >♪ 64%</text>
-<text x="950" y="650" font-size="12" fill="#6c7380" font-weight="400" text-anchor="start" >VPN</text>
-<rect x="990" y="630" width="44" height="30" fill="#373b41"/>
-<rect x="998" y="636" width="10.799999999999999" height="18" rx="3.3749999999999996" fill="#1b1d20" stroke="#4c566a"/><circle cx="1003.4" cy="640.5" r="2.16" fill="#bf616a"/><circle cx="1003.4" cy="645.0" r="2.16" fill="#ebcb8b"/><circle cx="1003.4" cy="649.5" r="2.16" fill="#3a3f46"/>
-<text x="1014" y="650" font-size="11" fill="#bf616a" font-weight="400" text-anchor="start" >1</text>
-<text x="1060" y="650" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="start" >⏻</text>
-<text x="1120" y="650" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="start" >21:47</text>
-<g transform="translate(1004 622)"><g><animateTransform attributeName="transform" type="scale" values="0.42;1.035;0.995;1" keyTimes="0;0.55;0.8;1" dur="0.7s" calcMode="spline" keySplines=".2 .8 .3 1;.4 0 .6 1;.4 0 .6 1"/><animate attributeName="opacity" values="0;1;1" keyTimes="0;0.4;1" dur="0.7s"/><g transform="translate(-1004 -622)">
-<rect x="548" y="268" width="610" height="344" rx="16" fill="#1e2024" stroke="#41464e" filter="url(#shadow)"/>
-<rect x="562" y="280" width="94" height="26" rx="7" fill="#32363c"/>
-<text x="571" y="298" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >Projects</text>
-<text x="637.5" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" opacity=".7">8</text>
-<text x="669" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" >Deploys</text>
-<text x="728.2" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" opacity=".7">4</text>
-<text x="761" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" >Tools</text>
-<text x="805.0" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" opacity=".7">3</text>
-<text x="837" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" >Shelf</text>
-<text x="881.0" y="298" font-size="12.5" fill="#6c7380" font-weight="400" text-anchor="start" opacity=".7">27</text>
-<rect x="988" y="280" width="156" height="26" rx="7" fill="none" stroke="#41464e"/>
-<text x="998" y="298" font-size="12" fill="#6c7380" font-weight="400" text-anchor="start" >⌕  /  to filter</text>
-<rect x="562" y="316" width="582" height="30" rx="8" fill="#ebcb8b" fill-opacity=".07" stroke="#ebcb8b" stroke-opacity=".25"/>
-<g><circle cx="578" cy="331" r="10.799999999999999" fill="url(#glow-caution)"/><circle cx="578" cy="331" r="4.5" fill="#ebcb8b"><animate attributeName="opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite"/></circle></g>
-<text x="592" y="335.5" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="start" >Main line: storefront build</text>
-<rect x="808" y="328" width="100" height="6" rx="3" fill="#3a3e45"/>
-<rect x="808" y="328" width="40" height="6" rx="3" fill="#ebcb8b"><animate attributeName="width" values="36;44;38;36" dur="5s" repeatCount="indefinite"/></rect>
-<text x="918" y="335.5" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="start" >3.1 of 12 GB</text>
-<text x="1016" y="335.5" font-size="12" fill="#6c7380" font-weight="400" text-anchor="start" >· android waiting</text>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.375;1" dur="0.480s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.375;1" dur="0.480s"/><rect x="562.0" y="358" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#7a3e45"/><rect x="562.0" y="358" width="139.5" height="88" rx="10" fill="#bf616a" opacity=".10"/><g><circle cx="577.0" cy="377" r="10.799999999999999" fill="url(#glow-stop)"/><circle cx="577.0" cy="377" r="4.5" fill="#bf616a"></circle></g><text x="589.0" y="382" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >ledger-api</text><text x="572.0" y="402" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >compose up</text><text x="572.0" y="421" font-size="11" fill="#bf616a" font-weight="400" text-anchor="start" >failed 6m · TS2339</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.429;1" dur="0.525s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.429;1" dur="0.525s"/><rect x="709.5" y="358" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#6b5f43"/><g><circle cx="724.5" cy="377" r="10.799999999999999" fill="url(#glow-caution)"/><circle cx="724.5" cy="377" r="4.5" fill="#ebcb8b"><animate attributeName="opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite"/></circle></g><text x="736.5" y="382" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >storefront</text><text x="719.5" y="402" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >next build</text><text x="719.5" y="421" font-size="11" fill="#ebcb8b" font-weight="400" text-anchor="start" >bundle · 0:48</text><rect x="719.5" y="430" width="119.5" height="3" rx="1.5" fill="#3a3e45"/><rect x="719.5" y="430" width="74.09" height="3" rx="1.5" fill="#ebcb8b"><animate attributeName="width" values="50.19;93.21000000000001;50.19" dur="6s" repeatCount="indefinite"/></rect></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.474;1" dur="0.570s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.474;1" dur="0.570s"/><rect x="857.0" y="358" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#45606a"/><g><circle cx="872.0" cy="377" r="10.799999999999999" fill="url(#glow-frost)"/><circle cx="872.0" cy="377" r="4.5" fill="#88c0d0"></circle></g><text x="884.0" y="382" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >api-gateway</text><text x="867.0" y="402" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >localhost:8080</text><text x="867.0" y="421" font-size="11" fill="#88c0d0" font-weight="400" text-anchor="start" >running 4:12 · 1.2G</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.512;1" dur="0.615s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.512;1" dur="0.615s"/><rect x="1004.5" y="358" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#2a2d32"/><g><circle cx="1019.5" cy="377" r="10.799999999999999" fill="url(#glow-go)"/><circle cx="1019.5" cy="377" r="4.5" fill="#a3be8c"></circle></g><text x="1031.5" y="382" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >e2e-suite</text><text x="1014.5" y="402" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >playwright · chrome</text><text x="1014.5" y="421" font-size="11" fill="#a3be8c" font-weight="400" text-anchor="start" >ok · 1m 52s</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.545;1" dur="0.660s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.545;1" dur="0.660s"/><rect x="562.0" y="454" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#2a2d32"/><circle cx="577.0" cy="473" r="3.7" fill="none" stroke="#ebcb8b" stroke-width="1.8"/><text x="589.0" y="478" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >android</text><text x="572.0" y="498" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >APK → emulator</text><text x="572.0" y="517" font-size="11" fill="#ebcb8b" font-weight="400" text-anchor="start" >queued · heavy</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.574;1" dur="0.705s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.574;1" dur="0.705s"/><rect x="709.5" y="454" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#2a2d32"/><g><circle cx="724.5" cy="473" r="4.5" fill="#555b64"></circle></g><text x="736.5" y="478" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >docs-site</text><text x="719.5" y="498" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >hugo server</text><text x="719.5" y="517" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >idle · ok 2h ago</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.600;1" dur="0.750s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.600;1" dur="0.750s"/><rect x="857.0" y="454" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#2a2d32"/><g><circle cx="872.0" cy="473" r="4.5" fill="#555b64"></circle></g><text x="884.0" y="478" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >migrations</text><text x="867.0" y="498" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >staging db</text><text x="867.0" y="517" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >idle · ok 1d ago</text></g>
-<g opacity="1"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.623;1" dur="0.795s"/><animateTransform attributeName="transform" type="translate" values="0 10;0 10;0 0" keyTimes="0;0.623;1" dur="0.795s"/><rect x="1004.5" y="454" width="139.5" height="88" rx="10" fill="#2a2d32" stroke="#2a2d32"/><g><circle cx="1019.5" cy="473" r="4.5" fill="#555b64"></circle></g><text x="1031.5" y="478" font-size="13.5" fill="#c5c8c6" font-weight="700" text-anchor="start" >load-test</text><text x="1014.5" y="498" font-size="10.5" fill="#6c7380" font-weight="400" text-anchor="start" >k6 · 500 users</text><text x="1014.5" y="517" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >idle · 3d ago</text></g>
-<text x="564" y="571" font-size="11.5" fill="#6c7380" font-weight="400" text-anchor="start" >Recent</text>
-<rect x="622" y="558" width="133.6" height="19" rx="9.5" fill="none" stroke="#41464e"/>
-<text x="632" y="571.5" font-size="11.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >rotate wallpaper</text>
-<rect x="761.6" y="558" width="119.2" height="19" rx="9.5" fill="none" stroke="#41464e"/>
-<text x="771.6" y="571.5" font-size="11.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >deploy staging</text>
-<rect x="886.8" y="558" width="55.5" height="19" rx="9.5" fill="none" stroke="#41464e"/>
-<text x="896.8" y="571.5" font-size="11.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >tokei</text>
-<line x1="548" y1="582" x2="1158" y2="582" stroke="#41464e"/>
-<text x="564" y="602" font-size="11" fill="#c5c8c6" font-weight="400" text-anchor="start" >a-l</text>
-<text x="591" y="602" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >run</text>
-<text x="636" y="602" font-size="11" fill="#c5c8c6" font-weight="400" text-anchor="start" >⇧</text>
-<text x="649" y="602" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >variants</text>
-<text x="729" y="602" font-size="11" fill="#c5c8c6" font-weight="400" text-anchor="start" >/</text>
-<text x="742" y="602" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >filter</text>
-<text x="808" y="602" font-size="11" fill="#c5c8c6" font-weight="400" text-anchor="start" >esc</text>
-<text x="835" y="602" font-size="11" fill="#6c7380" font-weight="400" text-anchor="start" >close</text>
-</g></g></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="1200" height="660" font-family="JetBrains Mono, DejaVu Sans Mono, Menlo, Consolas, monospace" xml:space="preserve" role="img" aria-label="A waybar with the Switchyard signal and the Roundhouse lamp. A click on the signal opens the Switchyard board: storefront finishes on the main line and android takes its place, ledger-api fails, its log opens on the TypeScript error, and the error is copied.">
+<style>
+.a { animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: linear; animation-fill-mode: both; }
+.pulse { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .a, .pulse { animation: none !important; }
+  #cursor, .ripple { display: none; }
+}
+@keyframes k0 { 0.00% { opacity: 0; } 41.43% { opacity: 0; } 43.00% { opacity: 1; } 95.71% { opacity: 1; } 97.29% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k1 { 0.00% { opacity: 0; } 7.50% { opacity: 0; } 8.57% { opacity: 1; } 79.29% { opacity: 1; } 80.36% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k2 { 0.00% { opacity: 1; } 40.00% { opacity: 1; } 41.07% { opacity: 0; } 95.71% { opacity: 0; } 96.79% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k3 { 0.00% { opacity: 0; } 40.00% { opacity: 0; } 41.07% { opacity: 1; } 95.71% { opacity: 1; } 96.79% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k4 { 0.00% { transform: translateY(26px) scale(.06); } 7.64% { transform: translateY(26px) scale(.06); } 8.43% { transform: translateY(14px) scale(.5); } 9.14% { transform: translateY(4px) scale(.9); } 9.86% { transform: translateY(-1px) scale(1.035); } 10.71% { transform: translateY(0) scale(.988); } 11.71% { transform: scale(1.006); } 12.86% { transform: scale(1); } 79.14% { transform: scale(1); } 81.79% { transform: translateY(14px) scale(.4); } 100.00% { transform: translateY(14px) scale(.4); } }
+@keyframes k5 { 0.00% { opacity: 0; } 7.64% { opacity: 0; } 8.57% { opacity: 0.85; } 9.14% { opacity: 1; } 79.14% { opacity: 1; } 81.79% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k6 { 0.00% { opacity: 1; } 30.00% { opacity: 1; } 31.29% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k7 { 0.00% { opacity: 0; } 30.71% { opacity: 0; } 32.00% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k8 { 0.00% { opacity: 1; } 50.36% { opacity: 1; } 52.14% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k9 { 0.00% { transform: none; } 50.36% { transform: none; } 52.14% { transform: translateX(-36px); } 100.00% { transform: translateX(-36px); } }
+@keyframes k10 { 0.00% { opacity: 1; } 40.00% { opacity: 1; } 41.43% { opacity: 0; } 95.71% { opacity: 0; } 97.14% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k11 { 0.00% { opacity: 0; } 40.00% { opacity: 0; } 41.43% { opacity: 1; } 95.71% { opacity: 1; } 97.14% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k12 { 0.00% { opacity: 1; } 30.00% { opacity: 1; } 31.43% { opacity: 0; } 95.71% { opacity: 0; } 97.14% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k13 { 0.00% { transform: scaleX(0.3); } 7.71% { transform: scaleX(0.3); } 30.00% { transform: scaleX(1.0); } 100.00% { transform: scaleX(1.0); } }
+@keyframes k14 { 0.00% { opacity: 0; } 30.00% { opacity: 0; } 31.43% { opacity: 1; } 95.71% { opacity: 1; } 97.14% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k15 { 0.00% { opacity: 1; } 30.00% { opacity: 1; } 31.43% { opacity: 0; } 95.71% { opacity: 0; } 97.14% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k16 { 0.00% { opacity: 0; } 30.00% { opacity: 0; } 31.43% { opacity: 1; } 95.71% { opacity: 1; } 97.14% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k17 { 0.00% { transform: scaleX(0.0); } 30.71% { transform: scaleX(0.0); } 78.57% { transform: scaleX(0.55); } 100.00% { transform: scaleX(0.55); } }
+@keyframes k18 { 0.00% { opacity: 0; } 51.07% { opacity: 0; } 53.00% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k19 { 0.00% { transform: translateX(36px); } 51.07% { transform: translateX(36px); } 53.00% { transform: none; } 100.00% { transform: none; } }
+@keyframes k20 { 0.00% { opacity: 1; } 67.14% { opacity: 1; } 68.21% { opacity: 0; } 77.14% { opacity: 0; } 78.21% { opacity: 1; } 100.00% { opacity: 1; } }
+@keyframes k21 { 0.00% { opacity: 0; } 67.50% { opacity: 0; } 68.57% { opacity: 1; } 77.14% { opacity: 1; } 78.21% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k22 { 0.00% { opacity: 0; } 7.07% { opacity: 0; } 7.14% { opacity: 0.9; } 10.36% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k23 { 0.00% { transform: scale(.3); } 7.14% { transform: scale(.3); } 10.36% { transform: scale(1.6); } 100.00% { transform: scale(1.6); } }
+@keyframes k24 { 0.00% { opacity: 0; } 49.93% { opacity: 0; } 50.00% { opacity: 0.9; } 53.21% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k25 { 0.00% { transform: scale(.3); } 50.00% { transform: scale(.3); } 53.21% { transform: scale(1.6); } 100.00% { transform: scale(1.6); } }
+@keyframes k26 { 0.00% { opacity: 0; } 67.07% { opacity: 0; } 67.14% { opacity: 0.9; } 70.36% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k27 { 0.00% { transform: scale(.3); } 67.14% { transform: scale(.3); } 70.36% { transform: scale(1.6); } 100.00% { transform: scale(1.6); } }
+@keyframes k28 { 0.00% { opacity: 0; } 78.50% { opacity: 0; } 78.57% { opacity: 0.9; } 81.79% { opacity: 0; } 100.00% { opacity: 0; } }
+@keyframes k29 { 0.00% { transform: scale(.3); } 78.57% { transform: scale(.3); } 81.79% { transform: scale(1.6); } 100.00% { transform: scale(1.6); } }
+@keyframes k30 { 0.00% { transform: translate(757.0px, 356.0px); } 6.07% { transform: translate(927.0px, 634.0px); } 21.43% { transform: translate(927.0px, 634.0px); } 27.14% { transform: translate(899.0px, 374.0px); } 45.71% { transform: translate(899.0px, 374.0px); } 48.93% { transform: translate(624.2px, 348.0px); } 61.43% { transform: translate(624.2px, 348.0px); } 66.07% { transform: translate(599.0px, 529.0px); } 72.86% { transform: translate(599.0px, 529.0px); } 77.50% { transform: translate(417.0px, 246.0px); } 85.71% { transform: translate(417.0px, 246.0px); } 100.00% { transform: translate(757.0px, 356.0px); } }</style>
+<defs>
+<linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14171c"/><stop offset="1" stop-color="#0d0f12"/></linearGradient>
+<radialGradient id="haze1" cx=".85" cy="0" r=".75"><stop offset="0" stop-color="#88c0d0" stop-opacity=".13"/><stop offset="1" stop-color="#88c0d0" stop-opacity="0"/></radialGradient>
+<radialGradient id="haze2" cx=".05" cy="1" r=".6"><stop offset="0" stop-color="#b48ead" stop-opacity=".09"/><stop offset="1" stop-color="#b48ead" stop-opacity="0"/></radialGradient>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity=".65"/></filter>
+<clipPath id="screen"><rect width="1200" height="660" rx="18"/></clipPath>
+</defs>
+<g clip-path="url(#screen)">
+<rect width="1200" height="660" fill="url(#wall)"/><rect width="1200" height="660" fill="url(#haze1)"/><rect width="1200" height="660" fill="url(#haze2)"/>
+<rect x="36" y="36" width="520" height="330" rx="12" fill="#1a1d22" stroke="#2a2e35"/>
+<rect x="36" y="36" width="520" height="30" rx="12" fill="#1f2328"/>
+<circle cx="54" cy="51" r="5" fill="#bf616a" fill-opacity=".55"/>
+<circle cx="70" cy="51" r="5" fill="#ebcb8b" fill-opacity=".55"/>
+<circle cx="86" cy="51" r="5" fill="#a3be8c" fill-opacity=".55"/>
+<text x="58.0" y="94.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >~/code/ledger-api  main ● 3</text>
+<text x="58.0" y="132.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >208</text>
+<text x="100.0" y="132.0" font-size="13" fill="#9aa5b4" font-weight="400" text-anchor="start" >const subtotal = sumLines(invoice.lines);</text>
+<text x="58.0" y="154.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >209</text>
+<text x="100.0" y="154.0" font-size="13" fill="#c5c8c6" font-weight="400" text-anchor="start" >if (subtotal &lt; plan.minimumCharge) {</text>
+<text x="58.0" y="176.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >210</text>
+<text x="100.0" y="176.0" font-size="13" fill="#9aa5b4" font-weight="400" text-anchor="start" >  invoice.adjustments.push(</text>
+<text x="58.0" y="198.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >211</text>
+<text x="100.0" y="198.0" font-size="13" fill="#9aa5b4" font-weight="400" text-anchor="start" >    minimumCharge(plan, subtotal),</text>
+<text x="58.0" y="220.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >212</text>
+<text x="100.0" y="220.0" font-size="13" fill="#9aa5b4" font-weight="400" text-anchor="start" >  );</text>
+<text x="58.0" y="242.0" font-size="13" fill="#555b64" font-weight="400" text-anchor="start" >213</text>
+<text x="100.0" y="242.0" font-size="13" fill="#9aa5b4" font-weight="400" text-anchor="start" >}</text>
+<path d="M228,158 q4,-4 8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0 t8,0" fill="none" stroke="#bf616a" stroke-width="1.6" class="a" style="animation-name:k0;" opacity="1"/>
+<rect x="210" y="330" width="440" height="250" rx="12" fill="#1a1d22" stroke="#2a2e35" opacity=".85"/>
+<rect x="232" y="372" width="300" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="244" y="398" width="220" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="256" y="424" width="340" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="232" y="450" width="180" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="244" y="476" width="260" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="256" y="502" width="140" height="9" rx="4" fill="#3b4252" opacity=".8"/>
+<rect x="0" y="616" width="1200" height="44" fill="#282a2e"/>
+<line x1="0" y1="616" x2="1200" y2="616" stroke="#000" stroke-opacity=".4"/>
+<text x="27.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="middle" >1</text>
+<text x="57.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="middle" >2</text>
+<text x="87.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="middle" >3</text>
+<rect x="104" y="625" width="26" height="26" rx="6" fill="#88c0d0"/>
+<text x="117.0" y="643.0" font-size="14" fill="#1d2024" font-weight="700" text-anchor="middle" >4</text>
+<text x="147.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="middle" >5</text>
+<text x="177.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="middle" >6</text>
+<text x="208.0" y="643.0" font-size="14" fill="#c5c8c6" font-weight="400" text-anchor="start" >nvim  src/billing/invoice.ts</text>
+<text x="612.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="start" >♪ lo-fi radio</text>
+<line x1="598" y1="626" x2="598" y2="650" stroke="#3b4048"/>
+<text x="760.0" y="643.0" font-size="14" fill="#7c838e" font-weight="400" text-anchor="start" >vol 42%</text>
+<line x1="746" y1="626" x2="746" y2="650" stroke="#3b4048"/>
+<line x1="896" y1="626" x2="896" y2="650" stroke="#3b4048"/>
+<rect x="908" y="623" width="52" height="30" rx="7" fill="#88c0d0" fill-opacity=".22" class="a" style="animation-name:k1;" opacity="0"/>
+<rect x="922" y="625.0" width="16" height="26" rx="6" fill="#1b1d20" stroke="#4c566a" stroke-width="1.4"/>
+<circle cx="930" cy="631.0" r="2.8" fill="#bf616a" opacity=".18"/>
+<circle cx="930" cy="638.0" r="2.8" fill="#ebcb8b" opacity=".18"/>
+<circle cx="930" cy="645.0" r="2.8" fill="#a3be8c" opacity=".18"/>
+<g class="a" style="animation-name:k2;" opacity="0"><circle class="pulse" cx="930" cy="638.0" r="2.8" fill="#ebcb8b"/></g>
+<g class="a" style="animation-name:k3;" opacity="1"><circle cx="930" cy="631.0" r="2.8" fill="#bf616a"/>
+<text x="943.0" y="643.0" font-size="14" fill="#bf616a" font-weight="700" text-anchor="start" >1</text>
+</g>
+<line x1="974" y1="626" x2="974" y2="650" stroke="#3b4048"/>
+<circle cx="1004" cy="638.0" r="10" fill="none" stroke="#c5c8c6" stroke-width="1.5"/>
+<line x1="1010.0" y1="638.0" x2="1013.0" y2="638.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1008.2" y1="642.2" x2="1010.4" y2="644.4" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1004.0" y1="644.0" x2="1004.0" y2="647.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="999.8" y1="642.2" x2="997.6" y2="644.4" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="998.0" y1="638.0" x2="995.0" y2="638.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="999.8" y1="633.8" x2="997.6" y2="631.6" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1004.0" y1="632.0" x2="1004.0" y2="629.0" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1008.2" y1="633.8" x2="1010.4" y2="631.6" stroke="#c5c8c6" stroke-width="1.5" stroke-linecap="round"/>
+<circle cx="1004" cy="638.0" r="3.6" fill="#a3be8c"/>
+<text x="1021.0" y="643.0" font-size="14" fill="#c5c8c6" font-weight="400" text-anchor="start" >54°</text>
+<line x1="1064" y1="626" x2="1064" y2="650" stroke="#3b4048"/>
+<text x="1178.0" y="643.0" font-size="14" fill="#c5c8c6" font-weight="400" text-anchor="end" >14:32</text>
+<g class="a" style="animation-name:k4,k5;transform-origin:930px 638.0px"><g transform="translate(542.0,208.0)">
+<rect width="640" height="396" rx="16" fill="#25282c" stroke="#41464e" filter="url(#shadow)"/>
+<rect x="12" y="13" width="108" height="28" rx="7" fill="#33373d"/>
+<text x="24.0" y="32.0" font-size="13" fill="#c5c8c6" font-weight="400" text-anchor="start" >Projects</text>
+<text x="96.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >8</text>
+<text x="136.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Deploys</text>
+<text x="196.6" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >4</text>
+<text x="236.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Desk</text>
+<text x="273.2" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >1</text>
+<text x="312.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >Shelf</text>
+<rect x="480" y="13" width="148" height="28" rx="8" fill="none" stroke="#41464e"/>
+<text x="494.0" y="32.0" font-size="13" fill="#7c838e" font-weight="400" text-anchor="start" >/  to filter</text>
+<rect x="12" y="52" width="616" height="32" rx="8" fill="#ebcb8b" fill-opacity=".07" stroke="#ebcb8b" stroke-opacity=".35"/>
+<circle class="pulse" cx="28" cy="68" r="5" fill="#ebcb8b"/>
+<g class="a" style="animation-name:k6;" opacity="0">
+<text x="42.0" y="73.0" font-size="13" fill="#c5c8c6" font-weight="400" text-anchor="start" >Main line: storefront · next build</text>
+<text x="616.0" y="73.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="end" >3.1 of 12 GB · android waiting</text>
+</g>
+<g class="a" style="animation-name:k7;" opacity="1">
+<text x="42.0" y="73.0" font-size="13" fill="#c5c8c6" font-weight="400" text-anchor="start" >Main line: android · assembleDebug</text>
+<text x="616.0" y="73.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="end" >5.8 of 12 GB</text>
+</g>
+<g class="a" style="animation-name:k8,k9">
+<g class="a" style="animation-name:k10;" opacity="0">
+<rect x="12.0" y="96" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="134.5" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="142.5" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >a</text>
+<circle cx="28.0" cy="114" r="5" fill="#555b64"/>
+<text x="40.0" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >ledger-api</text>
+<text x="24.0" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >compose up</text>
+<text x="24.0" y="162.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >idle · ok 1h ago</text>
+</g>
+<g class="a" style="animation-name:k11;" opacity="1">
+<rect x="12.0" y="96" width="146.5" height="96" rx="10" fill="#3a2a2d" stroke="#bf616a"/>
+<rect x="134.5" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="142.5" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >a</text>
+<circle cx="28.0" cy="114" r="5" fill="#bf616a"/>
+<text x="40.0" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >ledger-api</text>
+<text x="24.0" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >compose up</text>
+<text x="24.0" y="162.0" font-size="12" fill="#bf616a" font-weight="400" text-anchor="start" >failed · TS2339</text>
+</g>
+<g class="a" style="animation-name:k12;" opacity="0">
+<rect x="168.5" y="96" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#5c5440"/>
+<rect x="291.0" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="299.0" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >s</text>
+<circle class="pulse" cx="184.5" cy="114" r="5" fill="#ebcb8b"/>
+<text x="196.5" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >storefront</text>
+<text x="180.5" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >next build</text>
+<text x="180.5" y="162.0" font-size="12" fill="#ebcb8b" font-weight="400" text-anchor="start" >build 2/2 · 0:48</text>
+<rect x="180.5" y="174.0" width="122.5" height="4" rx="2" fill="#363a40"/>
+<rect x="180.5" y="174.0" width="122.5" height="4" rx="2" fill="#ebcb8b" class="a" style="animation-name:k13;transform-box:fill-box;transform-origin:left center" transform="translate(180.5,0) scale(1,1) translate(-180.5,0)"/>
+</g>
+<g class="a" style="animation-name:k14;" opacity="1">
+<rect x="168.5" y="96" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="291.0" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="299.0" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >s</text>
+<circle cx="184.5" cy="114" r="5" fill="#a3be8c"/>
+<text x="196.5" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >storefront</text>
+<text x="180.5" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >next build</text>
+<text x="180.5" y="162.0" font-size="12" fill="#a3be8c" font-weight="400" text-anchor="start" >ok · 2m 14s</text>
+</g>
+<rect x="325.0" y="96" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#3f5b63"/>
+<rect x="447.5" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="455.5" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >d</text>
+<circle cx="341.0" cy="114" r="5" fill="#88c0d0"/>
+<text x="353.0" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >api-gateway</text>
+<text x="337.0" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >localhost:8080</text>
+<text x="337.0" y="162.0" font-size="12" fill="#88c0d0" font-weight="400" text-anchor="start" >running · 1.2 G</text>
+<polyline points="337.0,178.0 343.4,174.5 349.9,172.6 356.3,172.9 362.8,175.3 369.2,178.5 375.7,180.9 382.1,181.2 388.6,179.2 395.0,175.7 401.5,172.2 407.9,170.3 414.4,170.7 420.8,173.2 427.3,176.3 433.7,178.6 440.2,178.9 446.6,176.8 453.1,173.3 459.5,169.9" fill="none" stroke="#88c0d0" stroke-width="1.4"/>
+<rect x="481.5" y="96" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="604.0" y="106" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="612.0" y="118.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >f</text>
+<circle cx="497.5" cy="114" r="5" fill="#a3be8c"/>
+<text x="509.5" y="119.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >e2e-suite</text>
+<text x="493.5" y="142.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >playwright</text>
+<text x="493.5" y="162.0" font-size="12" fill="#a3be8c" font-weight="400" text-anchor="start" >ok · 1m 52s</text>
+<g class="a" style="animation-name:k15;" opacity="0">
+<rect x="12.0" y="202" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="134.5" y="212" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="142.5" y="224.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >g</text>
+<circle cx="28.0" cy="220" r="4.5" fill="none" stroke="#ebcb8b" stroke-width="2"/>
+<text x="40.0" y="225.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >android</text>
+<text x="24.0" y="248.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >APK → emulator</text>
+<text x="24.0" y="268.0" font-size="12" fill="#ebcb8b" font-weight="400" text-anchor="start" >queued · heavy</text>
+</g>
+<g class="a" style="animation-name:k16;" opacity="1">
+<rect x="12.0" y="202" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#5c5440"/>
+<rect x="134.5" y="212" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="142.5" y="224.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >g</text>
+<circle class="pulse" cx="28.0" cy="220" r="5" fill="#ebcb8b"/>
+<text x="40.0" y="225.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >android</text>
+<text x="24.0" y="248.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >APK → emulator</text>
+<text x="24.0" y="268.0" font-size="12" fill="#ebcb8b" font-weight="400" text-anchor="start" >build 1/2 · 0:06</text>
+<rect x="24.0" y="280.0" width="122.5" height="4" rx="2" fill="#363a40"/>
+<rect x="24.0" y="280.0" width="122.5" height="4" rx="2" fill="#ebcb8b" class="a" style="animation-name:k17;transform-box:fill-box;transform-origin:left center" transform="translate(24.0,0) scale(0.4,1) translate(-24.0,0)"/>
+</g>
+<rect x="168.5" y="202" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="291.0" y="212" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="299.0" y="224.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >h</text>
+<circle cx="184.5" cy="220" r="5" fill="#555b64"/>
+<text x="196.5" y="225.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >docs-site</text>
+<text x="180.5" y="248.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >hugo server</text>
+<text x="180.5" y="268.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >idle · ok 2h ago</text>
+<rect x="325.0" y="202" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="447.5" y="212" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="455.5" y="224.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >j</text>
+<circle cx="341.0" cy="220" r="5" fill="#555b64"/>
+<text x="353.0" y="225.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >migrations</text>
+<text x="337.0" y="248.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >staging db</text>
+<text x="337.0" y="268.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >idle · ok 1d ago</text>
+<rect x="481.5" y="202" width="146.5" height="96" rx="10" fill="#2c2f34" stroke="#363a40"/>
+<rect x="604.0" y="212" width="16" height="16" rx="4" fill="#ebcb8b"/>
+<text x="612.0" y="224.0" font-size="11" fill="#1d2024" font-weight="700" text-anchor="middle" >k</text>
+<circle cx="497.5" cy="220" r="5" fill="#555b64"/>
+<text x="509.5" y="225.0" font-size="13" fill="#c5c8c6" font-weight="700" text-anchor="start" >load-test</text>
+<text x="493.5" y="248.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >k6 · 500 users</text>
+<text x="493.5" y="268.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >idle · 3d ago</text>
+<text x="12.0" y="330.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="start" >Recent</text>
+<rect x="72" y="314" width="140.4" height="24" rx="12" fill="none" stroke="#41464e"/>
+<text x="142.2" y="330.0" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="middle" >rotate wallpaper</text>
+<rect x="220.4" y="314" width="125.6" height="24" rx="12" fill="none" stroke="#41464e"/>
+<text x="283.2" y="330.0" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="middle" >deploy staging</text>
+<rect x="354.0" y="314" width="59.0" height="24" rx="12" fill="none" stroke="#41464e"/>
+<text x="383.5" y="330.0" font-size="12" fill="#c5c8c6" font-weight="400" text-anchor="middle" >tokei</text>
+</g>
+<g class="a" style="animation-name:k18,k19" opacity="0">
+<circle cx="20" cy="110" r="4" fill="#bf616a"/>
+<text x="32.0" y="115.0" font-size="14" fill="#c5c8c6" font-weight="700" text-anchor="start" >ledger-api</text>
+<text x="128.0" y="115.0" font-size="13" fill="#bf616a" font-weight="400" text-anchor="start" >exit 1 in step 1 of 2</text>
+<rect x="12" y="126" width="616" height="176" rx="6" fill="#16181b"/>
+<rect x="20" y="211" width="600" height="38" rx="3" fill="#bf616a" fill-opacity=".28"/>
+<text x="28.0" y="148.0" font-size="12.5" fill="#88c0d0" font-weight="400" text-anchor="start" >===== switchyard · ledger-api · 14:31:07 =====</text>
+<text x="28.0" y="167.0" font-size="12.5" fill="#88c0d0" font-weight="400" text-anchor="start" >===== step 1/2: tsc =====</text>
+<text x="28.0" y="186.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="start" >  Resolving dependencies...</text>
+<text x="28.0" y="205.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="start" >  Compiling unit 8 of 8</text>
+<text x="28.0" y="224.0" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >src/billing/invoice.ts(212,17): error TS2339:</text>
+<text x="28.0" y="243.0" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="start" >  Property 'minimumCharge' does not exist on 'Plan'.</text>
+<text x="28.0" y="262.0" font-size="12.5" fill="#7c838e" font-weight="400" text-anchor="start" >Found 1 error in src/billing/invoice.ts:212</text>
+<text x="28.0" y="281.0" font-size="12.5" fill="#bf616a" font-weight="400" text-anchor="start" >===== exit 1 · step 1 of 2 · stopped =====</text>
+<rect x="12.0" y="312" width="122.8" height="26" rx="6" fill="#bf616a" fill-opacity="0.85" stroke="#bf616a"/>
+<text x="73.4" y="329.0" font-size="12.5" fill="#1d2024" font-weight="700" text-anchor="middle" >y  copy error</text>
+<rect x="142.8" y="312" width="115.2" height="26" rx="6" fill="none" fill-opacity="1" stroke="#41464e"/>
+<text x="200.4" y="329.0" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="middle" >e  open :212</text>
+<rect x="266.0" y="312" width="115.2" height="26" rx="6" fill="none" fill-opacity="1" stroke="#41464e"/>
+<text x="323.6" y="329.0" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="middle" >r  run again</text>
+<rect x="389.2" y="312" width="92.4" height="26" rx="6" fill="none" fill-opacity="1" stroke="#41464e"/>
+<text x="435.4" y="329.0" font-size="12.5" fill="#c5c8c6" font-weight="400" text-anchor="middle" >esc  back</text>
+</g>
+<line x1="12" y1="352" x2="628" y2="352" stroke="#41464e"/>
+<g class="a" style="animation-name:k20;" opacity="1">
+<text x="16.0" y="378.0" font-size="12" fill="#c5c8c6" font-weight="700" text-anchor="start" >a-l</text>
+<text x="46.8" y="378.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >run</text>
+<text x="96.0" y="378.0" font-size="12" fill="#c5c8c6" font-weight="700" text-anchor="start" >⇧</text>
+<text x="111.6" y="378.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >variants</text>
+<text x="206.0" y="378.0" font-size="12" fill="#c5c8c6" font-weight="700" text-anchor="start" >/</text>
+<text x="221.6" y="378.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >filter</text>
+<text x="296.0" y="378.0" font-size="12" fill="#c5c8c6" font-weight="700" text-anchor="start" >esc</text>
+<text x="326.8" y="378.0" font-size="12" fill="#7c838e" font-weight="400" text-anchor="start" >close</text>
+</g>
+<g class="a" style="animation-name:k21;" opacity="0">
+<text x="16.0" y="378.0" font-size="12.5" fill="#a3be8c" font-weight="700" text-anchor="start" >✓ copied the error with 3 lines of context</text>
+</g>
+</g></g>
+<circle class="a ripple" style="animation-name:k22,k23;transform-box:fill-box;transform-origin:center" cx="930.0" cy="638.0" r="18" fill="none" stroke="#88c0d0" stroke-width="2.5" opacity="0"/>
+<circle class="a ripple" style="animation-name:k24,k25;transform-box:fill-box;transform-origin:center" cx="627.2" cy="352.0" r="18" fill="none" stroke="#88c0d0" stroke-width="2.5" opacity="0"/>
+<circle class="a ripple" style="animation-name:k26,k27;transform-box:fill-box;transform-origin:center" cx="602.0" cy="533.0" r="18" fill="none" stroke="#88c0d0" stroke-width="2.5" opacity="0"/>
+<circle class="a ripple" style="animation-name:k28,k29;transform-box:fill-box;transform-origin:center" cx="420.0" cy="250.0" r="18" fill="none" stroke="#88c0d0" stroke-width="2.5" opacity="0"/>
+<g id="cursor" class="a" style="animation-name:k30;animation-timing-function:cubic-bezier(.45,0,.25,1);transform:translate(624.2px, 348.0px)">
+<path d="M0,0 L0,22 L6,17 L10,26 L14,24 L10,15 L18,15 Z" fill="#eceff4" stroke="#1d2024" stroke-width="1.4" stroke-linejoin="round"/>
+</g>
+</g></svg>

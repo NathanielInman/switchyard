@@ -5,6 +5,10 @@
 <h1 align="center">Switchyard</h1>
 
 <p align="center">
+  <img src="docs/assets/hero.svg" width="100%" alt="A waybar with the Switchyard signal and the Roundhouse lamp. A click on the signal opens the Switchyard board: storefront finishes on the main line and android takes its place, ledger-api fails, its log opens on the TypeScript error, and the error is copied.">
+</p>
+
+<p align="center">
   <b>A dispatch board for the scripts you keep writing.</b><br>
   Builds, launches, deploys and one-off scripts, one click from your bar, menu bar or tray.<br>
   Live state on every task, logs that open on the first real error,<br>
@@ -27,10 +31,6 @@
     <td colspan="2" align="center"><sub><b>History.</b> Every run folds into episodes, so you read your week instead of its logs: what broke, what fixed it, what got slower and what you waited on.</sub></td>
   </tr>
 </table>
-
-<p align="center">
-  <img src="docs/assets/hero.svg" alt="The Switchyard board open above a waybar icon: eight task tiles with colored lamps, a main-line strip showing one heavy build and one waiting, and a recent strip." width="100%">
-</p>
 
 <table align="center">
   <tr>
