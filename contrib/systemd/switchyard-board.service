@@ -1,0 +1,15 @@
+[Unit]
+Description=Switchyard board: the panel your bar opens
+Documentation=https://github.com/NathanielInman/switchyard
+PartOf=graphical-session.target
+After=graphical-session.target switchyard.service
+Wants=switchyard.service
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=@BINDIR@/yard-board
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

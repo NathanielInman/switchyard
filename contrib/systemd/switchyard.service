@@ -1,0 +1,16 @@
+[Unit]
+Description=Switchyard daemon: runs and watches your tasks
+Documentation=https://github.com/NathanielInman/switchyard
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=@BINDIR@/yard daemon
+Restart=on-failure
+RestartSec=2
+# Tasks run in their own transient units, so only the daemon itself stops
+# here; a restart picks running tasks back up.
+KillMode=process
+
+[Install]
+WantedBy=graphical-session.target

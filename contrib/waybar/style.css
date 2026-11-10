@@ -1,0 +1,9 @@
+/* The module's class is the aggregate state. */
+#custom-switchyard { padding: 0 10px; }
+#custom-switchyard.idle     { color: #7c838e; }
+#custom-switchyard.queued   { color: #ebcb8b; }
+#custom-switchyard.building { color: #ebcb8b; }
+#custom-switchyard.running  { color: #88c0d0; }
+#custom-switchyard.ok       { color: #a3be8c; }
+#custom-switchyard.failed   { color: #bf616a; }
+#custom-switchyard.offline  { color: #4c566a; }
