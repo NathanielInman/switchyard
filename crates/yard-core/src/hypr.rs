@@ -160,6 +160,12 @@ pub fn anchor(namespace: &str, center: bool) -> Option<Anchor> {
 
 /// Key binds with descriptions, for the Shelf.
 pub fn binds() -> Vec<(String, String)> {
+    query("j/binds").map(|text| parse_binds(&text)).unwrap_or_default()
+}
+
+/// `hyprctl -j binds` as (keys, description) pairs: "Super + Alt + V",
+/// "Clipboard history".
+fn parse_binds(text: &str) -> Vec<(String, String)> {
     #[derive(Deserialize)]
     struct Bind {
         #[serde(default)]
@@ -167,35 +173,130 @@ pub fn binds() -> Vec<(String, String)> {
         #[serde(default)]
         key: String,
         #[serde(default)]
+        keycode: u32,
+        #[serde(default)]
+        mouse: bool,
+        #[serde(default)]
         description: String,
         #[serde(default)]
         dispatcher: String,
         #[serde(default)]
         arg: String,
     }
-    let Ok(text) = query("j/binds") else { return vec![] };
-    let Ok(binds) = serde_json::from_str::<Vec<Bind>>(&text) else { return vec![] };
+    let Ok(binds) = serde_json::from_str::<Vec<Bind>>(text) else { return vec![] };
     binds
         .into_iter()
-        .filter(|b| !b.key.is_empty())
+        // A bind by key code ("code:191") has no key name, only the code.
+        .filter(|b| !b.key.is_empty() || b.keycode != 0)
         .map(|b| {
             let mut keys = vec![];
-            for (bit, name) in [(64, "SUPER"), (4, "CTRL"), (8, "ALT"), (1, "SHIFT")] {
+            for (bit, name) in [(64, "Super"), (4, "Ctrl"), (8, "Alt"), (1, "Shift")] {
                 if b.modmask & bit != 0 {
                     keys.push(name.to_string());
                 }
             }
-            keys.push(b.key.clone());
-            let desc = if !b.description.is_empty() {
-                b.description
-            } else if b.arg.is_empty() {
-                b.dispatcher
-            } else {
-                format!("{} {}", b.dispatcher, b.arg)
-            };
+            keys.push(key_name(&b.key, b.keycode, b.mouse));
+            let desc = if b.description.is_empty() { describe(&b.dispatcher, &b.arg) } else { b.description };
             (keys.join(" + "), desc)
         })
         .collect()
+}
+
+/// What a bind without a description runs. The hyprlang config reports the
+/// dispatcher and its argument ("exec kitty"). The Lua config reports
+/// "HL.Dispatcher(exec_cmd)" and a number that only means something inside
+/// Hyprland, so only the dispatcher's name is worth showing.
+fn describe(dispatcher: &str, arg: &str) -> String {
+    if let Some(name) = dispatcher.strip_prefix("HL.Dispatcher(").and_then(|d| d.strip_suffix(')')) {
+        if arg.is_empty() || arg.chars().all(|c| c.is_ascii_digit()) {
+            return name.to_string();
+        }
+        return format!("{name} {arg}");
+    }
+    if arg.is_empty() {
+        dispatcher.to_string()
+    } else {
+        format!("{dispatcher} {arg}")
+    }
+}
+
+/// A key as it's printed on the keyboard: "]" for bracketright, "F13" for
+/// code:191, "Volume up" for XF86AudioRaiseVolume. `mouse` marks a held
+/// mouse bind (bindm), which drags rather than clicks.
+fn key_name(key: &str, keycode: u32, mouse: bool) -> String {
+    if key.is_empty() {
+        // X keycodes are evdev codes plus 8: F13 to F24 are 191 to 202.
+        return match keycode {
+            191..=202 => format!("F{}", keycode - 178),
+            _ => format!("code:{keycode}"),
+        };
+    }
+    if let Some(button) = key.strip_prefix("mouse:") {
+        let which = match button {
+            "272" => "Left",
+            "273" => "Right",
+            "274" => "Middle",
+            "275" => "Back",
+            "276" => "Forward",
+            other => return format!("Mouse {other}"),
+        };
+        return format!("{which} {}", if mouse { "drag" } else { "click" });
+    }
+    let named = match key.to_ascii_lowercase().as_str() {
+        "mouse_down" => "Scroll down",
+        "mouse_up" => "Scroll up",
+        "mouse_left" => "Scroll left",
+        "mouse_right" => "Scroll right",
+        "bracketleft" => "[",
+        "bracketright" => "]",
+        "braceleft" => "{",
+        "braceright" => "}",
+        "parenleft" => "(",
+        "parenright" => ")",
+        "slash" => "/",
+        "backslash" => "\\",
+        "equal" => "=",
+        "minus" => "-",
+        "plus" => "+",
+        "comma" => ",",
+        "period" => ".",
+        "semicolon" => ";",
+        "apostrophe" => "'",
+        "grave" => "`",
+        "return" => "Enter",
+        "escape" => "Esc",
+        "space" => "Space",
+        "tab" => "Tab",
+        "backspace" => "Backspace",
+        "delete" => "Delete",
+        "print" => "Print",
+        "up" => "Up",
+        "down" => "Down",
+        "left" => "Left",
+        "right" => "Right",
+        "xf86audioraisevolume" => "Volume up",
+        "xf86audiolowervolume" => "Volume down",
+        "xf86audiomute" => "Mute",
+        "xf86audiomicmute" => "Mic mute",
+        "xf86audioplay" => "Play",
+        "xf86audiopause" => "Pause",
+        "xf86audiostop" => "Stop",
+        "xf86audionext" => "Next track",
+        "xf86audioprev" => "Previous track",
+        "xf86monbrightnessup" => "Brightness up",
+        "xf86monbrightnessdown" => "Brightness down",
+        _ => "",
+    };
+    if !named.is_empty() {
+        return named.to_string();
+    }
+    if let Some(rest) = key.strip_prefix("XF86") {
+        return rest.to_string();
+    }
+    if key.chars().count() == 1 {
+        return key.to_uppercase();
+    }
+    key.to_string()
 }
 
 #[cfg(test)]
@@ -246,5 +347,38 @@ mod tests {
         let a = compute_anchor(r#"{"x":700,"y":5}"#, m, "{}", "waybar", false).unwrap();
         assert_eq!(a.width, 1440.0);
         assert_eq!(a.edge, Edge::Top);
+    }
+
+    #[test]
+    fn binds_read_as_keys_and_names() {
+        let json = r#"[
+          {"modmask":72,"key":"V","keycode":0,"mouse":false,"description":"Clipboard history · paste","dispatcher":"HL.Dispatcher(exec_cmd)","arg":"33"},
+          {"modmask":0,"key":"","keycode":191,"mouse":false,"description":"Dictation","dispatcher":"HL.Dispatcher(exec_cmd)","arg":"48"},
+          {"modmask":64,"key":"mouse:272","keycode":0,"mouse":true,"description":"","dispatcher":"HL.Dispatcher(window.drag)","arg":""},
+          {"modmask":65,"key":"bracketright","keycode":0,"mouse":false,"description":"","dispatcher":"HL.Dispatcher(exec_cmd)","arg":"12"},
+          {"modmask":0,"key":"XF86AudioRaiseVolume","keycode":0,"mouse":false,"description":"","dispatcher":"exec","arg":"swayosd-client --output-volume +5"},
+          {"modmask":4,"key":"","keycode":0,"mouse":false,"description":"nothing to press","dispatcher":"exec","arg":""}
+        ]"#;
+        let got = parse_binds(json);
+        let want = [
+            ("Super + Alt + V", "Clipboard history · paste"),
+            ("F13", "Dictation"),
+            ("Super + Left drag", "window.drag"),
+            ("Super + Shift + ]", "exec_cmd"),
+            ("Volume up", "exec swayosd-client --output-volume +5"),
+        ];
+        assert_eq!(got, want.map(|(k, d)| (k.to_string(), d.to_string())));
+    }
+
+    #[test]
+    fn key_names() {
+        assert_eq!(key_name("q", 0, false), "Q");
+        assert_eq!(key_name("Slash", 0, false), "/");
+        assert_eq!(key_name("Return", 0, false), "Enter");
+        assert_eq!(key_name("mouse:273", 0, false), "Right click");
+        assert_eq!(key_name("XF86Calculator", 0, false), "Calculator");
+        assert_eq!(key_name("", 202, false), "F24");
+        assert_eq!(key_name("", 66, false), "code:66");
+        assert_eq!(key_name("Home", 0, false), "Home");
     }
 }

@@ -336,7 +336,7 @@ tags = ["deploy"]
 [shelf]
 stale_days = 30       # unpinned tasks unused this long get a Shelf suggestion
 tools = "pacman"      # list installed programs with descriptions; or "none"
-binds = true          # list compositor key binds
+binds = true          # list Hyprland key binds by description ("Label · search tags")
 
 [[shelf.tool]]
 name = "tokei"
