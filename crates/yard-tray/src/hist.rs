@@ -76,10 +76,7 @@ impl HistState {
     }
 
     fn episodes(&self) -> Vec<(String, Vec<Episode>)> {
-        self.data
-            .as_ref()
-            .map(|d| d.days.iter().map(|day| (day.label.clone(), day.episodes.clone())).collect())
-            .unwrap_or_default()
+        self.data.as_ref().map(|d| d.days.iter().map(|day| (day.label.clone(), day.episodes.clone())).collect()).unwrap_or_default()
     }
 
     pub fn selected_task(&self) -> Option<String> {
@@ -211,7 +208,13 @@ impl HistState {
                             let mr = Rect::from_min_size(pos2(tx + i as f32 * 10.0, my), vec2(7.0, 14.0));
                             p.rect_filled(mr, CornerRadius::same(2), mark_color(m));
                         }
-                        p.text(pos2(tx, my + 26.0), Align2::LEFT_CENTER, elide(p, &e.detail, mono(11.0), r.right() - tx - 10.0), mono(11.0), DIM);
+                        p.text(
+                            pos2(tx, my + 26.0),
+                            Align2::LEFT_CENTER,
+                            elide(p, &e.detail, mono(11.0), r.right() - tx - 10.0),
+                            mono(11.0),
+                            DIM,
+                        );
                         let label = format!("o  open {}'s runs", e.who);
                         let g = p.layout_no_wrap(label.clone(), mono(11.0), FG);
                         let br = Rect::from_min_size(pos2(tx, my + 36.0), g.size() + vec2(14.0, 6.0));
@@ -281,7 +284,11 @@ impl HistState {
         ok.sort_by(|a, b| a.partial_cmp(b).unwrap());
         if ok.len() >= 4 {
             let (lo, hi) = (ok[ok.len() / 4], ok[ok.len() * 3 / 4]);
-            p.rect_filled(Rect::from_min_max(pos2(left, y(hi)), pos2(right, y(lo).max(y(hi) + 2.0))), CornerRadius::ZERO, FROST.gamma_multiply(0.12));
+            p.rect_filled(
+                Rect::from_min_max(pos2(left, y(hi)), pos2(right, y(lo).max(y(hi) + 2.0))),
+                CornerRadius::ZERO,
+                FROST.gamma_multiply(0.12),
+            );
         }
         let step = (right - left) / runs.len() as f32;
         let mut last_day = String::new();
@@ -327,9 +334,13 @@ impl HistState {
                 lamp(ui.painter(), lr.center(), &l);
                 ui.label(egui::RichText::new(format!("{} · run {}", r.label, r.run % 100_000)).font(mono(12.5)).color(FG).strong());
                 ui.label(
-                    egui::RichText::new(format!("{} {}", yard_core::history::short_day(r.ended, now), yard_core::history::clock_time(r.started)))
-                        .font(mono(11.5))
-                        .color(DIM),
+                    egui::RichText::new(format!(
+                        "{} {}",
+                        yard_core::history::short_day(r.ended, now),
+                        yard_core::history::clock_time(r.started)
+                    ))
+                    .font(mono(11.5))
+                    .color(DIM),
                 );
                 let (txt, col) = match r.outcome {
                     Outcome::Ok => (format!("ok in {}", duration(r.work_secs())), GO),
@@ -358,7 +369,11 @@ impl HistState {
                     };
                     let sr = Rect::from_min_size(pos2(x, br.top()), vec2(w, br.height()));
                     p.rect_filled(sr, CornerRadius::same(5), c);
-                    let text = if s.attempts > 1 { format!("{} (try {}) {}", s.name, s.attempts, duration(s.secs)) } else { format!("{} {}", s.name, duration(s.secs)) };
+                    let text = if s.attempts > 1 {
+                        format!("{} (try {}) {}", s.name, s.attempts, duration(s.secs))
+                    } else {
+                        format!("{} {}", s.name, duration(s.secs))
+                    };
                     let g = p.layout_no_wrap(text, mono(11.0), Color32::from_rgb(0x1b, 0x1d, 0x20));
                     if g.size().x + 12.0 < w {
                         p.galley(pos2(sr.left() + 7.0, sr.center().y - g.size().y / 2.0), g, Color32::from_rgb(0x1b, 0x1d, 0x20));
@@ -367,9 +382,13 @@ impl HistState {
                 }
             }
             if let Some(e) = &r.error {
-                egui::Frame::new().fill(STOP.gamma_multiply(0.18)).corner_radius(CornerRadius::same(6)).inner_margin(egui::Margin::symmetric(8, 5)).show(ui, |ui| {
-                    ui.label(egui::RichText::new(&e.text).font(mono(11.5)).color(Color32::from_rgb(0xff, 0xd5, 0xd9)));
-                });
+                egui::Frame::new()
+                    .fill(STOP.gamma_multiply(0.18))
+                    .corner_radius(CornerRadius::same(6))
+                    .inner_margin(egui::Margin::symmetric(8, 5))
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new(&e.text).font(mono(11.5)).color(Color32::from_rgb(0xff, 0xd5, 0xd9)));
+                    });
             }
             let usual = {
                 let mut v: Vec<f64> = runs.iter().filter(|x| x.outcome == Outcome::Ok && x.run != r.run).map(|x| x.work_secs()).collect();
@@ -381,19 +400,28 @@ impl HistState {
                 (Outcome::Ok, Some(u)) if u > 1.0 => {
                     let g = r.work_secs() / u - 1.0;
                     facts.push((
-                        if g.abs() < 0.1 { "usual pace".into() } else { format!("{}{:.0}% vs usual", if g > 0.0 { "+" } else { "" }, g * 100.0) },
+                        if g.abs() < 0.1 {
+                            "usual pace".into()
+                        } else {
+                            format!("{}{:.0}% vs usual", if g > 0.0 { "+" } else { "" }, g * 100.0)
+                        },
                         format!("usual is {}", duration(u)),
                     ));
                 }
                 (Outcome::Failed, _) => {
-                    if let Some(g) = runs.iter().rev().filter(|x| x.ended < r.ended).find(|x| x.outcome == Outcome::Ok).and_then(|g| g.git.clone()) {
+                    if let Some(g) =
+                        runs.iter().rev().filter(|x| x.ended < r.ended).find(|x| x.outcome == Outcome::Ok).and_then(|g| g.git.clone())
+                    {
                         facts.push(("first red after".into(), format!("{} on {}", &g.sha[..g.sha.len().min(7)], g.branch)));
                     }
                 }
                 _ => {}
             }
             if let Some(pk) = r.peak_mem {
-                facts.push((format!("{} peak", human(pk)), r.mem_cap.map(|c| format!("of the {} cap", human(c))).unwrap_or_else(|| "no cap".into())));
+                facts.push((
+                    format!("{} peak", human(pk)),
+                    r.mem_cap.map(|c| format!("of the {} cap", human(c))).unwrap_or_else(|| "no cap".into()),
+                ));
             }
             facts.push((format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".into()));
             if let Some(g) = &r.git {
@@ -412,10 +440,14 @@ impl HistState {
             ui.horizontal(|ui| {
                 let btn = |ui: &mut egui::Ui, text: &str, primary: bool| {
                     ui.add(
-                        egui::Button::new(egui::RichText::new(text).font(mono(11.5)).color(if primary { Color32::from_rgb(0x1b, 0x1d, 0x20) } else { FG }))
-                            .fill(if primary { FROST } else { Color32::TRANSPARENT })
-                            .stroke(Stroke::new(1.0, if primary { FROST } else { BORDER }))
-                            .corner_radius(CornerRadius::same(7)),
+                        egui::Button::new(egui::RichText::new(text).font(mono(11.5)).color(if primary {
+                            Color32::from_rgb(0x1b, 0x1d, 0x20)
+                        } else {
+                            FG
+                        }))
+                        .fill(if primary { FROST } else { Color32::TRANSPARENT })
+                        .stroke(Stroke::new(1.0, if primary { FROST } else { BORDER }))
+                        .corner_radius(CornerRadius::same(7)),
                     )
                     .clicked()
                 };

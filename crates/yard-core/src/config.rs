@@ -85,13 +85,7 @@ pub struct MainlineConfig {
 
 impl Default for MainlineConfig {
     fn default() -> Self {
-        MainlineConfig {
-            min_free: "8G".into(),
-            mem: "16G".into(),
-            idle_cpu: true,
-            nice: 19,
-            respect_roundhouse: true,
-        }
+        MainlineConfig { min_free: "8G".into(), mem: "16G".into(), idle_cpu: true, nice: 19, respect_roundhouse: true }
     }
 }
 
@@ -118,13 +112,7 @@ pub struct BoardConfig {
 
 impl Default for BoardConfig {
     fn default() -> Self {
-        BoardConfig {
-            width: 640,
-            font: None,
-            bar_namespace: "waybar".into(),
-            max_height: 0.8,
-            gap: 8,
-        }
+        BoardConfig { width: 640, font: None, bar_namespace: "waybar".into(), max_height: 0.8, gap: 8 }
     }
 }
 
@@ -148,12 +136,7 @@ pub struct ShelfConfig {
 
 impl Default for ShelfConfig {
     fn default() -> Self {
-        ShelfConfig {
-            stale_days: 30,
-            tools: "none".into(),
-            binds: true,
-            extra: vec![],
-        }
+        ShelfConfig { stale_days: 30, tools: "none".into(), binds: true, extra: vec![] }
     }
 }
 
@@ -179,11 +162,7 @@ pub struct BarConfig {
 
 impl Default for BarConfig {
     fn default() -> Self {
-        BarConfig {
-            icon: "●".into(),
-            format: Default::default(),
-            show_count: true,
-        }
+        BarConfig { icon: "●".into(), format: Default::default(), show_count: true }
     }
 }
 
@@ -199,13 +178,7 @@ impl Config {
             Err(_) => (Config::default(), vec![]),
             Ok(text) => match toml::from_str::<Config>(&text) {
                 Ok(c) => (c, vec![]),
-                Err(e) => (
-                    Config::default(),
-                    vec![Problem {
-                        file: paths::tilde(path),
-                        message: e.to_string().trim().to_string(),
-                    }],
-                ),
+                Err(e) => (Config::default(), vec![Problem { file: paths::tilde(path), message: e.to_string().trim().to_string() }]),
             },
         }
     }

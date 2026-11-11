@@ -629,11 +629,7 @@ impl Board {
         *self.hold.borrow_mut() = None;
         // A fresh failure opens straight to its log.
         let failed = self.snap.borrow().as_ref().and_then(|s| {
-            s.tasks
-                .iter()
-                .filter(|t| t.phase == Phase::Failed)
-                .max_by(|a, b| a.since.partial_cmp(&b.since).unwrap())
-                .map(|t| t.id.clone())
+            s.tasks.iter().filter(|t| t.phase == Phase::Failed).max_by(|a, b| a.since.partial_cmp(&b.since).unwrap()).map(|t| t.id.clone())
         });
         let was_visible = self.visible.get();
         self.visible.set(true);
@@ -831,13 +827,10 @@ impl Board {
         }
         let snap = self.snap.borrow();
         let Some(s) = snap.as_ref() else { return };
-        let mut entries: Vec<(String, usize)> = s
-            .tabs
-            .iter()
-            .map(|tab| (tab.name.clone(), s.tasks.iter().filter(|t| Self::in_tab(t, tab)).count()))
-            .collect();
-        let shelf_count = s.tasks.iter().filter(|t| t.shelf || t.stale).count()
-            + self.shelf.borrow().as_ref().map(|d| d.tools.len()).unwrap_or(0);
+        let mut entries: Vec<(String, usize)> =
+            s.tabs.iter().map(|tab| (tab.name.clone(), s.tasks.iter().filter(|t| Self::in_tab(t, tab)).count())).collect();
+        let shelf_count =
+            s.tasks.iter().filter(|t| t.shelf || t.stale).count() + self.shelf.borrow().as_ref().map(|d| d.tools.len()).unwrap_or(0);
         entries.push(("History".into(), 0));
         entries.push(("Shelf".into(), shelf_count));
         let active = match &*self.mode.borrow() {
@@ -1034,14 +1027,13 @@ impl Board {
         }
         let tabs = &s.tabs;
         let tab = tabs.get(self.tab.get()).or_else(|| tabs.first());
-        let mut list: Vec<TaskView> = s
-            .tasks
-            .iter()
-            .filter(|t| tab.is_none_or(|tab| Self::in_tab(t, tab)))
-            .cloned()
-            .collect();
+        let mut list: Vec<TaskView> = s.tasks.iter().filter(|t| tab.is_none_or(|tab| Self::in_tab(t, tab))).cloned().collect();
         list.sort_by(|a, b| {
-            (a.pin.is_none(), a.pin.unwrap_or(0), a.label.to_lowercase()).cmp(&(b.pin.is_none(), b.pin.unwrap_or(0), b.label.to_lowercase()))
+            (a.pin.is_none(), a.pin.unwrap_or(0), a.label.to_lowercase()).cmp(&(
+                b.pin.is_none(),
+                b.pin.unwrap_or(0),
+                b.label.to_lowercase(),
+            ))
         });
         list
     }
@@ -1173,11 +1165,8 @@ impl Board {
         let snap = self.snap.borrow();
         let Some(s) = snap.as_ref() else { return };
         let shown = self.order.borrow();
-        let mut recent: Vec<&TaskView> = s
-            .tasks
-            .iter()
-            .filter(|t| t.last_used.is_some() && !(shown.contains(&t.id) && t.pin.is_some()))
-            .collect();
+        let mut recent: Vec<&TaskView> =
+            s.tasks.iter().filter(|t| t.last_used.is_some() && !(shown.contains(&t.id) && t.pin.is_some())).collect();
         recent.sort_by(|a, b| b.last_used.partial_cmp(&a.last_used).unwrap_or(std::cmp::Ordering::Equal));
         if recent.is_empty() {
             self.recent.set_visible(false);
@@ -1284,11 +1273,8 @@ impl Board {
         };
         let mut headers = 0;
         if let Some(s) = &snap {
-            let tasks: Vec<&TaskView> = s
-                .tasks
-                .iter()
-                .filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some())
-                .collect();
+            let tasks: Vec<&TaskView> =
+                s.tasks.iter().filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some()).collect();
             if !tasks.is_empty() {
                 section(&self.shelf_list, "TASKS");
                 rows.push(ShelfRow::Bind);
@@ -1589,15 +1575,57 @@ impl Board {
             });
         }
         if v.has_clean {
-            items.push(MenuItem { label: "Clean build".into(), detail: String::new(), key: Some('c'), action: Action::Run { variant: None, params: BTreeMap::new(), clean: true, confirm: v.confirm }, star: None, class: None });
+            items.push(MenuItem {
+                label: "Clean build".into(),
+                detail: String::new(),
+                key: Some('c'),
+                action: Action::Run { variant: None, params: BTreeMap::new(), clean: true, confirm: v.confirm },
+                star: None,
+                class: None,
+            });
         }
         if v.phase.active() {
-            items.push(MenuItem { label: "Stop".into(), detail: String::new(), key: Some('x'), action: Action::Stop, star: None, class: Some("danger") });
+            items.push(MenuItem {
+                label: "Stop".into(),
+                detail: String::new(),
+                key: Some('x'),
+                action: Action::Stop,
+                star: None,
+                class: Some("danger"),
+            });
         }
-        items.push(MenuItem { label: "Open log".into(), detail: String::new(), key: Some('l'), action: Action::Log, star: None, class: None });
-        items.push(MenuItem { label: "Open in editor".into(), detail: String::new(), key: Some('e'), action: Action::Editor, star: None, class: None });
-        items.push(MenuItem { label: "Terminal here".into(), detail: String::new(), key: Some('t'), action: Action::Terminal, star: None, class: None });
-        items.push(MenuItem { label: "Copy command".into(), detail: String::new(), key: Some('y'), action: Action::CopyCommand, star: None, class: None });
+        items.push(MenuItem {
+            label: "Open log".into(),
+            detail: String::new(),
+            key: Some('l'),
+            action: Action::Log,
+            star: None,
+            class: None,
+        });
+        items.push(MenuItem {
+            label: "Open in editor".into(),
+            detail: String::new(),
+            key: Some('e'),
+            action: Action::Editor,
+            star: None,
+            class: None,
+        });
+        items.push(MenuItem {
+            label: "Terminal here".into(),
+            detail: String::new(),
+            key: Some('t'),
+            action: Action::Terminal,
+            star: None,
+            class: None,
+        });
+        items.push(MenuItem {
+            label: "Copy command".into(),
+            detail: String::new(),
+            key: Some('y'),
+            action: Action::CopyCommand,
+            star: None,
+            class: None,
+        });
         items.push(MenuItem {
             label: if v.shelf { "Back to the board".into() } else { "Move to the Shelf".into() },
             detail: String::new(),
@@ -1681,7 +1709,14 @@ impl Board {
             }
             Action::Custom(name) => {
                 let title = self.task(&id).map(|v| format!("{} {name}", v.label)).unwrap_or_default();
-                let items = vec![MenuItem { label: format!("Enter a value for {name}"), detail: String::new(), key: None, action: Action::Custom(name.clone()), star: None, class: Some("dim") }];
+                let items = vec![MenuItem {
+                    label: format!("Enter a value for {name}"),
+                    detail: String::new(),
+                    key: None,
+                    action: Action::Custom(name.clone()),
+                    star: None,
+                    class: Some("dim"),
+                }];
                 self.show_menu(&id, &title, items, Some((name.clone(), Some(name))));
             }
             Action::Stop => {

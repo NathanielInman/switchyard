@@ -395,12 +395,7 @@ pub fn status_line(v: &TaskView, now: f64) -> String {
             _ => "ok".into(),
         },
         Phase::Failed | Phase::Seen => {
-            let what = v
-                .error
-                .as_ref()
-                .and_then(|e| error_code(&e.text))
-                .or_else(|| v.message.clone())
-                .unwrap_or_else(|| "failed".into());
+            let what = v.error.as_ref().and_then(|e| error_code(&e.text)).or_else(|| v.message.clone()).unwrap_or_else(|| "failed".into());
             format!("failed {} · {what}", ago(now - v.since).replace(" ago", ""))
         }
         Phase::Idle => match &v.last {

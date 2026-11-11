@@ -156,10 +156,7 @@ impl TaskDef {
 }
 
 pub fn shell_quote(s: &str) -> String {
-    if !s.is_empty()
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || "-_./=:,+@%".contains(c))
-    {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./=:,+@%".contains(c)) {
         s.to_string()
     } else {
         format!("'{}'", s.replace('\'', "'\\''"))
@@ -168,17 +165,11 @@ pub fn shell_quote(s: &str) -> String {
 
 /// Characters systemd accepts in a unit name, everything else becomes `_`.
 pub fn unit_safe(id: &str) -> String {
-    id.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-        .collect()
+    id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect()
 }
 
 pub fn valid_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 64
-        && id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+    !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
 }
 
 // ---------------------------------------------------------------------------
@@ -303,29 +294,18 @@ fn steps_from(raw: Vec<RawStep>) -> Vec<Step> {
         .enumerate()
         .map(|(i, s)| match s {
             RawStep::Cmd(cmd) => Step { name: step_name(&cmd, i), cmd },
-            RawStep::Named { name, cmd } => Step {
-                name: name.unwrap_or_else(|| step_name(&cmd, i)),
-                cmd,
-            },
+            RawStep::Named { name, cmd } => Step { name: name.unwrap_or_else(|| step_name(&cmd, i)), cmd },
         })
         .collect()
 }
 
 /// A short name for an unnamed step: the first two words of the command.
 fn step_name(cmd: &str, i: usize) -> String {
-    let words: Vec<&str> = cmd
-        .split_whitespace()
-        .filter(|w| !w.contains('=') || w.starts_with('-'))
-        .take(2)
-        .collect();
+    let words: Vec<&str> = cmd.split_whitespace().filter(|w| !w.contains('=') || w.starts_with('-')).take(2).collect();
     if words.is_empty() {
         format!("step {}", i + 1)
     } else {
-        words
-            .iter()
-            .map(|w| w.rsplit('/').next().unwrap_or(w))
-            .collect::<Vec<_>>()
-            .join(" ")
+        words.iter().map(|w| w.rsplit('/').next().unwrap_or(w)).collect::<Vec<_>>().join(" ")
     }
 }
 
@@ -410,10 +390,7 @@ fn resolve(id: &str, t: RawTask, ctx: &Ctx, problems: &mut Vec<Problem>) -> Opti
     let errors = t.errors.map(|e| e.into_vec()).unwrap_or_default();
     for e in &errors {
         if !crate::errors::MATCHERS.contains(&e.as_str()) {
-            problem(
-                problems,
-                format!("task \"{id}\": unknown error matcher \"{e}\" (known: {})", crate::errors::MATCHERS.join(", ")),
-            );
+            problem(problems, format!("task \"{id}\": unknown error matcher \"{e}\" (known: {})", crate::errors::MATCHERS.join(", ")));
         }
     }
     if let Some(r) = &t.error_regex {
@@ -467,20 +444,12 @@ fn resolve(id: &str, t: RawTask, ctx: &Ctx, problems: &mut Vec<Problem>) -> Opti
             pattern: w.pattern,
         });
     }
-    let retry = t.retry.map(|r| Retry {
-        step: r.step,
-        on: r.on.unwrap_or_default(),
-        attempts: r.attempts.unwrap_or(3).max(1),
-    });
+    let retry = t.retry.map(|r| Retry { step: r.step, on: r.on.unwrap_or_default(), attempts: r.attempts.unwrap_or(3).max(1) });
     let log = match &t.log {
         Some(l) => paths::expand_in(l, ctx.base),
         None => ctx.log_dir.join(format!("{}.log", unit_safe(id))),
     };
-    let description = t.description.unwrap_or_else(|| {
-        dir.file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default()
-    });
+    let description = t.description.unwrap_or_else(|| dir.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
     Some(TaskDef {
         id: id.to_string(),
         label: t.label.unwrap_or_else(|| id.to_string()),
@@ -514,30 +483,18 @@ fn resolve(id: &str, t: RawTask, ctx: &Ctx, problems: &mut Vec<Problem>) -> Opti
 }
 
 /// Parses one manifest file's text.
-pub fn parse_manifest(
-    text: &str,
-    source: &Path,
-    origin: Origin,
-    log_dir: &Path,
-    problems: &mut Vec<Problem>,
-) -> Vec<TaskDef> {
+pub fn parse_manifest(text: &str, source: &Path, origin: Origin, log_dir: &Path, problems: &mut Vec<Problem>) -> Vec<TaskDef> {
     let raw: RawManifest = match toml::from_str(text) {
         Ok(r) => r,
         Err(e) => {
-            problems.push(Problem {
-                file: paths::tilde(source),
-                message: e.to_string().trim().to_string(),
-            });
+            problems.push(Problem { file: paths::tilde(source), message: e.to_string().trim().to_string() });
             return vec![];
         }
     };
     let base = source.parent().unwrap_or(Path::new("/"));
     let ctx = Ctx { base, source, origin, log_dir };
     let defaults = raw.defaults.unwrap_or_default();
-    raw.task
-        .into_iter()
-        .filter_map(|(id, t)| resolve(&id, merge(t, &defaults), &ctx, problems))
-        .collect()
+    raw.task.into_iter().filter_map(|(id, t)| resolve(&id, merge(t, &defaults), &ctx, problems)).collect()
 }
 
 /// Reads `@yard.key value` header comments from a script.
@@ -561,11 +518,8 @@ pub fn parse_script(text: &str, path: &Path, log_dir: &Path, problems: &mut Vec<
     }
     let stem = path.file_stem()?.to_string_lossy().to_string();
     let get = |k: &str| keys.iter().find(|(kk, _)| kk == k).map(|(_, v)| v.clone());
-    let id = get("id").unwrap_or_else(|| {
-        stem.chars()
-            .map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '-' })
-            .collect()
-    });
+    let id =
+        get("id").unwrap_or_else(|| stem.chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '-' }).collect());
     let cmd = shell_quote(&path.to_string_lossy());
     let variants = keys
         .iter()
@@ -651,12 +605,7 @@ fn is_executable(p: &Path, _m: &std::fs::Metadata) -> bool {
 
 fn overlay_files() -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = std::fs::read_dir(paths::overlay_dir())
-        .map(|rd| {
-            rd.flatten()
-                .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|e| e == "toml"))
-                .collect()
-        })
+        .map(|rd| rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "toml")).collect())
         .unwrap_or_default();
     out.sort();
     out
@@ -704,11 +653,7 @@ pub fn discover(cfg: &Config) -> Discovery {
         if let Some(i) = tasks.iter().position(|x| x.id == t.id) {
             problems.push(Problem {
                 file: paths::tilde(&t.source),
-                message: format!(
-                    "task \"{}\" replaces the one in {}",
-                    t.id,
-                    paths::tilde(&tasks[i].source)
-                ),
+                message: format!("task \"{}\" replaces the one in {}", t.id, paths::tilde(&tasks[i].source)),
             });
             tasks[i] = t;
         } else {

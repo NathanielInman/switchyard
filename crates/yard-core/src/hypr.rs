@@ -98,13 +98,7 @@ struct CursorPos {
 
 /// Works out the anchor from raw IPC replies. Split out so it can be tested
 /// against recorded output.
-pub fn compute_anchor(
-    cursor_json: &str,
-    monitors_json: &str,
-    layers_json: &str,
-    namespace: &str,
-    center: bool,
-) -> Result<Anchor> {
+pub fn compute_anchor(cursor_json: &str, monitors_json: &str, layers_json: &str, namespace: &str, center: bool) -> Result<Anchor> {
     let monitors: Vec<Monitor> = serde_json::from_str(monitors_json)?;
     let cursor: Option<CursorPos> = serde_json::from_str(cursor_json).ok();
     let mon = match &cursor {
@@ -125,13 +119,7 @@ pub fn compute_anchor(
     };
 
     let layers: BTreeMap<String, MonitorLayers> = serde_json::from_str(layers_json).unwrap_or_default();
-    let bar = layers.get(&mon.name).and_then(|ml| {
-        ml.levels
-            .values()
-            .flatten()
-            .find(|l| l.namespace == namespace)
-            .cloned()
-    });
+    let bar = layers.get(&mon.name).and_then(|ml| ml.levels.values().flatten().find(|l| l.namespace == namespace).cloned());
     let edge = match bar {
         Some(b) => {
             let (bx, by) = (b.x - mon.x, b.y - mon.y);
@@ -149,9 +137,7 @@ pub fn compute_anchor(
         }
         None => {
             // No bar found: the side with the largest reserved space.
-            let idx = (0..4)
-                .max_by(|a, b| reserved[*a].partial_cmp(&reserved[*b]).unwrap())
-                .unwrap_or(3);
+            let idx = (0..4).max_by(|a, b| reserved[*a].partial_cmp(&reserved[*b]).unwrap()).unwrap_or(3);
             if reserved[idx] <= 0.0 {
                 Edge::Bottom
             } else {
@@ -159,17 +145,7 @@ pub fn compute_anchor(
             }
         }
     };
-    Ok(Anchor {
-        monitor: Some(mon.name.clone()),
-        edge,
-        x: cx,
-        y: cy,
-        width: w,
-        height: h,
-        reserved,
-        center,
-        physical: false,
-    })
+    Ok(Anchor { monitor: Some(mon.name.clone()), edge, x: cx, y: cy, width: w, height: h, reserved, center, physical: false })
 }
 
 /// Queries Hyprland for the current anchor. `None` outside Hyprland.

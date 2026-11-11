@@ -119,9 +119,7 @@ impl Default for Spring {
 }
 
 pub fn animations_enabled() -> bool {
-    gtk::Settings::default()
-        .map(|s| s.is_gtk_enable_animations())
-        .unwrap_or(true)
+    gtk::Settings::default().map(|s| s.is_gtk_enable_animations()).unwrap_or(true)
 }
 
 impl Spring {

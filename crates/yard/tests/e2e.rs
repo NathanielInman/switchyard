@@ -140,9 +140,7 @@ run = "{s60}"
     fn task(&self, id: &str) -> Value {
         let o = self.cmd().args(["ls", "--json"]).output().unwrap();
         let v: Value = serde_json::from_slice(&o.stdout).unwrap_or(Value::Null);
-        v.as_array()
-            .and_then(|a| a.iter().find(|t| t["id"] == id).cloned())
-            .unwrap_or(Value::Null)
+        v.as_array().and_then(|a| a.iter().find(|t| t["id"] == id).cloned()).unwrap_or(Value::Null)
     }
 
     fn wait_for(&self, id: &str, phases: &[&str], secs: u64) -> Value {

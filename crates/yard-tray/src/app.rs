@@ -316,11 +316,7 @@ impl App {
             _ => None,
         };
         let failed = self.snap.as_ref().and_then(|s| {
-            s.tasks
-                .iter()
-                .filter(|t| t.phase == Phase::Failed)
-                .max_by(|a, b| a.since.partial_cmp(&b.since).unwrap())
-                .map(|t| t.id.clone())
+            s.tasks.iter().filter(|t| t.phase == Phase::Failed).max_by(|a, b| a.since.partial_cmp(&b.since).unwrap()).map(|t| t.id.clone())
         });
         self.menu = None;
         self.hold = None;
@@ -433,7 +429,9 @@ impl App {
             let mut scored: Vec<(i64, &TaskView)> = s
                 .tasks
                 .iter()
-                .filter_map(|t| fuzzy(&format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), &self.filter).map(|sc| (sc, t)))
+                .filter_map(|t| {
+                    fuzzy(&format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), &self.filter).map(|sc| (sc, t))
+                })
                 .collect();
             scored.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.frecency.partial_cmp(&a.1.frecency).unwrap_or(std::cmp::Ordering::Equal)));
             return scored.into_iter().map(|(_, t)| t.clone()).collect();
@@ -441,7 +439,11 @@ impl App {
         let tab = s.tabs.get(self.tab).or_else(|| s.tabs.first());
         let mut list: Vec<TaskView> = s.tasks.iter().filter(|t| tab.is_none_or(|tab| Self::in_tab(t, tab))).cloned().collect();
         list.sort_by(|a, b| {
-            (a.pin.is_none(), a.pin.unwrap_or(0), a.label.to_lowercase()).cmp(&(b.pin.is_none(), b.pin.unwrap_or(0), b.label.to_lowercase()))
+            (a.pin.is_none(), a.pin.unwrap_or(0), a.label.to_lowercase()).cmp(&(
+                b.pin.is_none(),
+                b.pin.unwrap_or(0),
+                b.label.to_lowercase(),
+            ))
         });
         list
     }
@@ -540,9 +542,8 @@ impl App {
         let Some(v) = self.task(id) else { return };
         self.menu = None;
         let path = std::path::PathBuf::from(&v.log);
-        let (text, end) = read_tail(&path, 0, 768 * 1024).unwrap_or_else(|| {
-            (format!("No log yet for {}.\nIt will appear at {} on the first run.", v.label, v.log), 0)
-        });
+        let (text, end) = read_tail(&path, 0, 768 * 1024)
+            .unwrap_or_else(|| (format!("No log yet for {}.\nIt will appear at {} on the first run.", v.label, v.log), 0));
         let lines: Vec<String> = text.lines().map(String::from).collect();
         let error = v.error.as_ref().and_then(|e| {
             let t = e.text.trim_end();
@@ -683,7 +684,12 @@ impl App {
                     label: format!("Replay {} {}{}", p.name, h.value, if h.starred { " ★" } else { "" }),
                     detail: ago(now - h.at),
                     key: next(),
-                    action: Action::Run { variant: None, params: [(p.name.clone(), h.value.clone())].into(), clean: false, confirm: v.confirm },
+                    action: Action::Run {
+                        variant: None,
+                        params: [(p.name.clone(), h.value.clone())].into(),
+                        clean: false,
+                        confirm: v.confirm,
+                    },
                     star: Some((p.name.clone(), h.value.clone(), h.starred)),
                     color: CAUTION,
                 });
@@ -710,7 +716,12 @@ impl App {
             color,
         };
         if v.has_clean {
-            items.push(plain("Clean build", 'c', Action::Run { variant: None, params: BTreeMap::new(), clean: true, confirm: v.confirm }, FG));
+            items.push(plain(
+                "Clean build",
+                'c',
+                Action::Run { variant: None, params: BTreeMap::new(), clean: true, confirm: v.confirm },
+                FG,
+            ));
         }
         if v.phase.active() {
             items.push(plain("Stop", 'x', Action::Stop, STOP));
@@ -1142,7 +1153,11 @@ impl App {
                     1 => format!(" · {} waiting", label_of(&m.queue[0])),
                     n => format!(" · {n} waiting"),
                 };
-                (format!("Main line: {}{step}", label_of(cur)), format!("{} of {}{waiting}", human(used), human(m.cap)), used as f32 / m.cap.max(1) as f32)
+                (
+                    format!("Main line: {}{step}", label_of(cur)),
+                    format!("{} of {}{waiting}", human(used), human(m.cap)),
+                    used as f32 / m.cap.max(1) as f32,
+                )
             }
             None => {
                 let head = m.queue.first().map(|h| label_of(h)).unwrap_or_default();
@@ -1203,7 +1218,12 @@ impl App {
                         let t = ((since_show - 70.0 - i as f32 * 26.0) / 260.0).clamp(0.0, 1.0);
                         let e = draw::ease_out(t);
                         let r = rect.translate(vec2(0.0, (1.0 - e) * 10.0));
-                        let hold = self.hold.as_ref().filter(|h| h.id == v.id).map(|h| (h.started.elapsed().as_secs_f32() * 1000.0 / HOLD_MS).min(1.0)).unwrap_or(0.0);
+                        let hold = self
+                            .hold
+                            .as_ref()
+                            .filter(|h| h.id == v.id)
+                            .map(|h| (h.started.elapsed().as_secs_f32() * 1000.0 / HOLD_MS).min(1.0))
+                            .unwrap_or(0.0);
                         let look = draw::TileLook {
                             hover: resp.hovered(),
                             selected: self.selected == Some(i),
@@ -1302,10 +1322,25 @@ impl App {
         let mut clicked = None;
         ui.horizontal(|ui| {
             let btn = |ui: &mut egui::Ui, label: &str, primary: bool, active: bool| {
-                let b = egui::Button::new(egui::RichText::new(label).font(mono(11.5)).color(if primary { Color32::from_rgb(0x1b, 0x1d, 0x20) } else if active { FROST } else { FG }))
-                    .fill(if primary { STOP } else { Color32::TRANSPARENT })
-                    .stroke(Stroke::new(1.0, if primary { STOP } else if active { FROST } else { BORDER }))
-                    .corner_radius(CornerRadius::same(7));
+                let b = egui::Button::new(egui::RichText::new(label).font(mono(11.5)).color(if primary {
+                    Color32::from_rgb(0x1b, 0x1d, 0x20)
+                } else if active {
+                    FROST
+                } else {
+                    FG
+                }))
+                .fill(if primary { STOP } else { Color32::TRANSPARENT })
+                .stroke(Stroke::new(
+                    1.0,
+                    if primary {
+                        STOP
+                    } else if active {
+                        FROST
+                    } else {
+                        BORDER
+                    },
+                ))
+                .corner_radius(CornerRadius::same(7));
                 ui.add(b).clicked()
             };
             if btn(ui, if has_err { "y  copy error" } else { "y  copy tail" }, has_err, false) {
@@ -1337,7 +1372,8 @@ impl App {
         let now = self.now();
         let q = self.filter.clone();
         if let Some(s) = self.snap.as_ref() {
-            let tasks: Vec<&TaskView> = s.tasks.iter().filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some()).collect();
+            let tasks: Vec<&TaskView> =
+                s.tasks.iter().filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some()).collect();
             if !tasks.is_empty() {
                 rows.push(ShelfRow::Section("TASKS".into()));
                 rows.extend(tasks.into_iter().map(|t| ShelfRow::Task(t.id.clone(), t.label.clone(), draw::status_line(t, now))));
@@ -1399,7 +1435,8 @@ impl App {
             return;
         }
         let Some(s) = self.snap.as_ref() else { return };
-        let mut recent: Vec<&TaskView> = s.tasks.iter().filter(|t| t.last_used.is_some() && !(self.order.contains(&t.id) && t.pin.is_some())).collect();
+        let mut recent: Vec<&TaskView> =
+            s.tasks.iter().filter(|t| t.last_used.is_some() && !(self.order.contains(&t.id) && t.pin.is_some())).collect();
         recent.sort_by(|a, b| b.last_used.partial_cmp(&a.last_used).unwrap_or(std::cmp::Ordering::Equal));
         if recent.is_empty() {
             return;
@@ -1451,11 +1488,9 @@ impl App {
         let Some(m) = self.menu.as_mut() else { return };
         let mut activate = None;
         let mut entry_done = false;
-        egui::Area::new(Id::unique("menu"))
-            .order(egui::Order::Foreground)
-            .pivot(Align2::CENTER_CENTER)
-            .fixed_pos(panel.center())
-            .show(ctx, |ui| {
+        egui::Area::new(Id::unique("menu")).order(egui::Order::Foreground).pivot(Align2::CENTER_CENTER).fixed_pos(panel.center()).show(
+            ctx,
+            |ui| {
                 egui::Frame::new()
                     .fill(Color32::from_rgb(0x1f, 0x22, 0x26))
                     .stroke(Stroke::new(1.0, BORDER))
@@ -1474,12 +1509,23 @@ impl App {
                             if i == m.selected {
                                 ui.painter().rect_filled(rect, CornerRadius::same(7), TILE_HOVER);
                             }
-                            ui.painter().text(pos2(rect.left() + 8.0, rect.center().y), Align2::LEFT_CENTER, &it.label, mono(12.5), it.color);
+                            ui.painter().text(
+                                pos2(rect.left() + 8.0, rect.center().y),
+                                Align2::LEFT_CENTER,
+                                &it.label,
+                                mono(12.5),
+                                it.color,
+                            );
                             let mut x = rect.right() - 8.0;
                             if let Some(k) = it.key {
                                 let s = if k == '\n' { "↵".to_string() } else { k.to_string() };
                                 let r = ui.painter().text(pos2(x, rect.center().y), Align2::RIGHT_CENTER, s, mono(10.5), DIM);
-                                ui.painter().rect_stroke(r.expand2(vec2(4.0, 1.0)), CornerRadius::same(4), Stroke::new(1.0, BORDER), StrokeKind::Outside);
+                                ui.painter().rect_stroke(
+                                    r.expand2(vec2(4.0, 1.0)),
+                                    CornerRadius::same(4),
+                                    Stroke::new(1.0, BORDER),
+                                    StrokeKind::Outside,
+                                );
                                 x = r.left() - 12.0;
                             }
                             if !it.detail.is_empty() {
@@ -1501,7 +1547,8 @@ impl App {
                             }
                         }
                     });
-            });
+            },
+        );
         if entry_done {
             self.menu_entry_done();
         } else if let Some(i) = activate {

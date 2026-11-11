@@ -25,10 +25,8 @@ mem = "12G"       # memory cap for each heavy build
 "#;
 
 fn bin_dir() -> PathBuf {
-    let dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(Path::to_path_buf))
-        .unwrap_or_else(|| paths::home().join(".local/bin"));
+    let dir =
+        std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)).unwrap_or_else(|| paths::home().join(".local/bin"));
     stable_dir(&dir)
 }
 
@@ -97,15 +95,14 @@ pub fn run(args: &[String]) -> Result<i32> {
 
 #[cfg(target_os = "linux")]
 fn unit_dir() -> PathBuf {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| paths::home().join(".config"))
-        .join("systemd/user")
+    std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| paths::home().join(".config")).join("systemd/user")
 }
 
 #[cfg(target_os = "linux")]
 fn install(no_start: bool) -> Result<()> {
-    if !crate::supervise::which("systemctl").is_some_and(|_| crate::sys::systemctl_user(&["show-environment"]).is_some_and(|t| !t.is_empty())) {
+    if !crate::supervise::which("systemctl")
+        .is_some_and(|_| crate::sys::systemctl_user(&["show-environment"]).is_some_and(|t| !t.is_empty()))
+    {
         println!("no systemd user manager: start `{} daemon` from your session's autostart", bin("yard").display());
         return Ok(());
     }
@@ -258,10 +255,7 @@ pub fn start_service() -> bool {
     if !agent(LABEL).exists() {
         return false;
     }
-    Command::new("launchctl")
-        .args(["kickstart", &format!("gui/{}/{LABEL}", uid())])
-        .status()
-        .is_ok_and(|s| s.success())
+    Command::new("launchctl").args(["kickstart", &format!("gui/{}/{LABEL}", uid())]).status().is_ok_and(|s| s.success())
 }
 
 #[cfg(target_os = "macos")]

@@ -45,13 +45,7 @@ fn oom_killed() -> bool {
     let Some(path) = cg.lines().find_map(|l| l.strip_prefix("0::")) else { return false };
     let events = format!("/sys/fs/cgroup{}/memory.events", path.trim());
     std::fs::read_to_string(events)
-        .map(|t| {
-            t.lines().any(|l| {
-                l.strip_prefix("oom_kill ")
-                    .and_then(|n| n.trim().parse::<u64>().ok())
-                    .is_some_and(|n| n > 0)
-            })
-        })
+        .map(|t| t.lines().any(|l| l.strip_prefix("oom_kill ").and_then(|n| n.trim().parse::<u64>().ok()).is_some_and(|n| n > 0)))
         .unwrap_or(false)
 }
 
@@ -82,21 +76,10 @@ pub fn build(path: &str) -> Result<i32> {
             let suffix = if attempt > 1 { format!(" (try {attempt} of {attempts})") } else { String::new() };
             writeln!(log, "===== step {n}/{total}: {}{suffix} =====", step.name)?;
             log.flush()?;
-            let _ = request(&Request::Progress {
-                run: spec.run,
-                index: n,
-                total,
-                name: step.name.clone(),
-                attempt,
-            });
+            let _ = request(&Request::Progress { run: spec.run, index: n, total, name: step.name.clone(), attempt });
             let out = log.try_clone()?;
             let err = log.try_clone()?;
-            let status = spec
-                .shell_command(&step.cmd)
-                .stdin(Stdio::null())
-                .stdout(out)
-                .stderr(err)
-                .status();
+            let status = spec.shell_command(&step.cmd).stdin(Stdio::null()).stdout(out).stderr(err).status();
             code = match status {
                 Ok(s) => code_of(s),
                 Err(e) => {

@@ -191,13 +191,7 @@ pub fn pacman_tools() -> Vec<ShelfItem> {
 
 #[cfg(target_os = "linux")]
 pub fn systemctl_user(args: &[&str]) -> Option<String> {
-    let out = Command::new("systemctl")
-        .arg("--user")
-        .args(args)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
+    let out = Command::new("systemctl").arg("--user").args(args).stdin(Stdio::null()).stderr(Stdio::null()).output().ok()?;
     Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
@@ -208,10 +202,7 @@ pub fn unit_properties(unit: &str, props: &[&str]) -> BTreeMap<String, String> {
     let p = format!("--property={joined}");
     args.push(&p);
     let text = systemctl_user(&args).unwrap_or_default();
-    text.lines()
-        .filter_map(|l| l.split_once('='))
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
+    text.lines().filter_map(|l| l.split_once('=')).map(|(k, v)| (k.to_string(), v.to_string())).collect()
 }
 
 #[cfg(target_os = "linux")]
@@ -232,9 +223,7 @@ pub fn read_u64(p: &Path) -> Option<u64> {
 #[cfg(target_os = "linux")]
 pub fn cpu_usage_usec(cg: &Path) -> Option<u64> {
     let t = std::fs::read_to_string(cg.join("cpu.stat")).ok()?;
-    t.lines()
-        .find_map(|l| l.strip_prefix("usage_usec "))
-        .and_then(|v| v.trim().parse().ok())
+    t.lines().find_map(|l| l.strip_prefix("usage_usec ")).and_then(|v| v.trim().parse().ok())
 }
 
 /// True when the cgroup still has processes in it.

@@ -16,13 +16,13 @@ mod board;
 #[cfg(target_os = "linux")]
 mod historyview;
 #[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
 mod logview;
 #[cfg(target_os = "linux")]
 mod stage;
 #[cfg(target_os = "linux")]
 mod tile;
-#[cfg(target_os = "linux")]
-mod linux;
 #[cfg(target_os = "linux")]
 fn main() -> gtk::glib::ExitCode {
     linux::main()

@@ -371,7 +371,11 @@ fn green(task: &str, runs: &[&RunRecord], earlier: &[&RunRecord]) -> Episode {
     let retries: u32 = runs.iter().flat_map(|r| r.steps.iter()).map(|s| s.attempts.saturating_sub(1)).sum();
     let queued: f64 = runs.iter().map(|r| r.queued_secs).sum();
     let what = if stopped {
-        if n == 1 { "ran, stopped by hand".into() } else { format!("{n} sessions") }
+        if n == 1 {
+            "ran, stopped by hand".into()
+        } else {
+            format!("{n} sessions")
+        }
     } else if n == 1 {
         "ok".into()
     } else {
@@ -428,7 +432,9 @@ fn green(task: &str, runs: &[&RunRecord], earlier: &[&RunRecord]) -> Episode {
     }
     if detail.is_empty() {
         detail = match (runs[0].git.as_ref(), last.git.as_ref()) {
-            (Some(a), Some(b)) if a.sha != b.sha => format!("{} to {} on {}.", &a.sha[..a.sha.len().min(7)], &b.sha[..b.sha.len().min(7)], b.branch),
+            (Some(a), Some(b)) if a.sha != b.sha => {
+                format!("{} to {} on {}.", &a.sha[..a.sha.len().min(7)], &b.sha[..b.sha.len().min(7)], b.branch)
+            }
             (_, Some(b)) if !b.sha.is_empty() => format!("{} on {}.", &b.sha[..b.sha.len().min(7)], b.branch),
             _ => "Nothing unusual.".into(),
         };

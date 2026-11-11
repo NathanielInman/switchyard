@@ -594,10 +594,7 @@ pub mod job {
                 self.tree.refresh();
                 self.last_refresh = Some(now);
             }
-            let mem: u64 = pids(job)
-                .into_iter()
-                .filter_map(|p| self.tree.memory_of(p))
-                .sum();
+            let mem: u64 = pids(job).into_iter().filter_map(|p| self.tree.memory_of(p)).sum();
             Usage { alive: true, mem: (mem > 0).then_some(mem), cpu }
         }
 

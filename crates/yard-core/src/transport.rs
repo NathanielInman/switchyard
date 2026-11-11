@@ -38,10 +38,7 @@ pub fn connect() -> Result<Stream> {
 }
 
 fn not_running(path: &std::path::Path) -> String {
-    format!(
-        "cannot reach the Switchyard daemon at {} (start it with `yard setup`, or `yard daemon` in a terminal)",
-        path.display()
-    )
+    format!("cannot reach the Switchyard daemon at {} (start it with `yard setup`, or `yard daemon` in a terminal)", path.display())
 }
 
 /// True when a daemon answers at the endpoint.

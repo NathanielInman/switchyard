@@ -32,7 +32,10 @@ extern "C" fn on_signal(_: libc::c_int) {
 }
 
 enum Msg {
-    Client { req: Request, stream: Stream },
+    Client {
+        req: Request,
+        stream: Stream,
+    },
     Tick,
     Git(Vec<(PathBuf, Option<GitInfo>)>),
     /// Roundhouse's lamp, or `None` when it is not running.
@@ -207,12 +210,7 @@ pub fn run() -> Result<()> {
     let mut d = Daemon::new(tx);
     d.reload(true);
     d.adopt();
-    eprintln!(
-        "switchyard: {} tasks, {} backend, {}",
-        d.tasks.len(),
-        d.sup.name(),
-        yard_core::transport::endpoint().display()
-    );
+    eprintln!("switchyard: {} tasks, {} backend, {}", d.tasks.len(), d.sup.name(), yard_core::transport::endpoint().display());
     d.event_loop(rx);
     d.history.save();
     d.save_runs();
@@ -268,12 +266,7 @@ pub fn local_time(secs: f64) -> String {
 fn random_u64() -> u64 {
     use std::hash::{BuildHasher, Hasher};
     let mut h = std::collections::hash_map::RandomState::new().build_hasher();
-    h.write_u128(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos(),
-    );
+    h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
     h.finish()
 }
 
@@ -472,11 +465,7 @@ impl Daemon {
     fn handle(&mut self, req: Request, mut stream: Stream) {
         let reply = match req {
             Request::Ping => Reply::msg(format!("switchyard {}", env!("CARGO_PKG_VERSION"))),
-            Request::Snapshot => Reply {
-                ok: true,
-                snapshot: Some(Box::new(self.snapshot())),
-                ..Default::default()
-            },
+            Request::Snapshot => Reply { ok: true, snapshot: Some(Box::new(self.snapshot())), ..Default::default() },
             Request::Subscribe { kind } => {
                 self.subscribe(kind, stream);
                 return;
@@ -494,16 +483,10 @@ impl Daemon {
                 }
                 Reply::ok()
             }
-            Request::History { id, limit } => Reply {
-                ok: true,
-                history: Some(Box::new(self.history_data(id.as_deref(), limit.unwrap_or(600)))),
-                ..Default::default()
-            },
-            Request::Shelf => Reply {
-                ok: true,
-                shelf: Some(self.shelf_data()),
-                ..Default::default()
-            },
+            Request::History { id, limit } => {
+                Reply { ok: true, history: Some(Box::new(self.history_data(id.as_deref(), limit.unwrap_or(600)))), ..Default::default() }
+            }
+            Request::Shelf => Reply { ok: true, shelf: Some(self.shelf_data()), ..Default::default() },
             Request::Reload => {
                 self.reload(true);
                 Reply::msg(format!("{} tasks, {} problems", self.tasks.len(), self.problems.len()))
@@ -762,11 +745,7 @@ impl Daemon {
                 if r.phase != Phase::Waiting {
                     r.set(Phase::Waiting);
                 }
-                r.message = Some(format!(
-                    "waiting for {} free ({} available)",
-                    human(min_free),
-                    human(mem.available)
-                ));
+                r.message = Some(format!("waiting for {} free ({} available)", human(min_free), human(mem.available)));
                 self.dirty = true;
                 break;
             }
@@ -848,16 +827,9 @@ impl Daemon {
         for (k, v) in &p.params {
             params.entry(k.clone()).or_insert_with(|| v.clone());
         }
-        let steps: Vec<Step> = self
-            .steps_for(def, &p)
-            .into_iter()
-            .map(|s| Step { name: s.name, cmd: substitute(&s.cmd, &params) })
-            .collect();
-        let run_cmd = variant
-            .as_ref()
-            .and_then(|v| v.run.clone())
-            .or_else(|| def.run.clone())
-            .map(|r| substitute(&r, &params));
+        let steps: Vec<Step> =
+            self.steps_for(def, &p).into_iter().map(|s| Step { name: s.name, cmd: substitute(&s.cmd, &params) }).collect();
+        let run_cmd = variant.as_ref().and_then(|v| v.run.clone()).or_else(|| def.run.clone()).map(|r| substitute(&r, &params));
 
         self.history.record_start(&def.id, at);
         for pd in &def.params {
@@ -975,10 +947,7 @@ impl Daemon {
         }
         env.insert("YARD_TASK".into(), def.id.clone());
         env.insert("YARD_RUN".into(), rec.id.to_string());
-        env.insert(
-            "YARD_SCRATCH".into(),
-            paths::runs_dir().join(format!("{}.scratch", rec.id)).to_string_lossy().to_string(),
-        );
+        env.insert("YARD_SCRATCH".into(), paths::runs_dir().join(format!("{}.scratch", rec.id)).to_string_lossy().to_string());
         env.insert("YARD_LOG".into(), def.log.to_string_lossy().to_string());
         let me = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("yard"));
         let spawn = Spawn {
@@ -1133,12 +1102,7 @@ impl Daemon {
             r.set(Phase::Idle);
             r.message = None;
         }
-        self.history.task(&def.id).last = Some(LastRun {
-            outcome: Outcome::Stopped,
-            at: now(),
-            duration: 0.0,
-            message: None,
-        });
+        self.history.task(&def.id).last = Some(LastRun { outcome: Outcome::Stopped, at: now(), duration: 0.0, message: None });
         self.history_dirty = true;
         self.write_record(&def.id, Outcome::Stopped, 0, None, None);
         if let Some(p) = restart {
@@ -1244,12 +1208,8 @@ impl Daemon {
             r.error = hit;
         }
         self.write_record(&def.id, Outcome::Failed, code, Some(message.clone()), hit_for_record);
-        self.history.task(&def.id).last = Some(LastRun {
-            outcome: Outcome::Failed,
-            at: now(),
-            duration: secs,
-            message: Some(message.clone()),
-        });
+        self.history.task(&def.id).last =
+            Some(LastRun { outcome: Outcome::Failed, at: now(), duration: secs, message: Some(message.clone()) });
         self.history_dirty = true;
         if def.notify != NotifyMode::Never {
             let body = if body.is_empty() { message } else { format!("{message}\n{body}") };
@@ -1491,20 +1451,18 @@ impl Daemon {
         }
         self.git_busy = true;
         self.git_at = Some(Instant::now());
-        let mut dirs: Vec<PathBuf> = self
-            .tasks
-            .iter()
-            .filter(|t| t.origin != manifest::Origin::Script)
-            .map(|t| t.dir.clone())
-            .collect();
+        let mut dirs: Vec<PathBuf> = self.tasks.iter().filter(|t| t.origin != manifest::Origin::Script).map(|t| t.dir.clone()).collect();
         dirs.sort();
         dirs.dedup();
         let tx = self.tx.clone();
         std::thread::spawn(move || {
-            let res: Vec<(PathBuf, Option<GitInfo>)> = dirs.into_iter().map(|d| {
-                let g = sys::git_info(&d);
-                (d, g)
-            }).collect();
+            let res: Vec<(PathBuf, Option<GitInfo>)> = dirs
+                .into_iter()
+                .map(|d| {
+                    let g = sys::git_info(&d);
+                    (d, g)
+                })
+                .collect();
             let _ = tx.send(Msg::Git(res));
         });
     }
@@ -1555,11 +1513,7 @@ impl Daemon {
                     variants: def
                         .variants
                         .iter()
-                        .map(|v| VariantView {
-                            name: v.name.clone(),
-                            label: v.label.clone(),
-                            confirm: v.confirm.unwrap_or(def.confirm),
-                        })
+                        .map(|v| VariantView { name: v.name.clone(), label: v.label.clone(), confirm: v.confirm.unwrap_or(def.confirm) })
                         .collect(),
                     has_clean: def.clean.is_some(),
                     has_run: def.run.is_some(),
@@ -1577,10 +1531,7 @@ impl Daemon {
         let mainline = MainlineView {
             current: self.mainline.clone(),
             queue: self.queue.iter().cloned().collect(),
-            waiting_memory: self
-                .queue
-                .front()
-                .is_some_and(|h| self.rt.get(h).is_some_and(|r| r.phase == Phase::Waiting)),
+            waiting_memory: self.queue.front().is_some_and(|h| self.rt.get(h).is_some_and(|r| r.phase == Phase::Waiting)),
             mem_available: mem.available,
             mem_total: mem.total,
             min_free: self.cfg.mainline.min_free_bytes(),
@@ -1624,12 +1575,7 @@ impl Daemon {
                 }
             }
         };
-        let line = BarLine {
-            text: text.trim().to_string(),
-            class: class.clone(),
-            tooltip: sys::escape_markup(&a.tooltip()),
-            alt: class,
-        };
+        let line = BarLine { text: text.trim().to_string(), class: class.clone(), tooltip: sys::escape_markup(&a.tooltip()), alt: class };
         serde_json::to_string(&line).unwrap_or_default()
     }
 
@@ -1678,13 +1624,8 @@ impl Daemon {
                 return ShelfData { tools: d.tools.clone(), binds };
             }
         }
-        let mut tools: Vec<ShelfItem> = self
-            .cfg
-            .shelf
-            .extra
-            .iter()
-            .map(|t| ShelfItem { name: t.name.clone(), desc: t.desc.clone(), cmd: t.cmd.clone() })
-            .collect();
+        let mut tools: Vec<ShelfItem> =
+            self.cfg.shelf.extra.iter().map(|t| ShelfItem { name: t.name.clone(), desc: t.desc.clone(), cmd: t.cmd.clone() }).collect();
         if self.cfg.shelf.tools == "pacman" {
             for t in sys::pacman_tools() {
                 if !tools.iter().any(|x| x.name == t.name) {
@@ -1701,10 +1642,7 @@ impl Daemon {
         if !self.cfg.shelf.binds {
             return vec![];
         }
-        yard_core::hypr::binds()
-            .into_iter()
-            .map(|(k, d)| ShelfItem { name: k, desc: d, cmd: None })
-            .collect()
+        yard_core::hypr::binds().into_iter().map(|(k, d)| ShelfItem { name: k, desc: d, cmd: None }).collect()
     }
 
     fn open(&mut self, what: OpenWhat, id: Option<String>, file: Option<String>, line: Option<u32>, tool: Option<String>) -> Reply {
@@ -1836,5 +1774,3 @@ impl Daemon {
         let _ = self.tx.send(Msg::Wake);
     }
 }
-
-

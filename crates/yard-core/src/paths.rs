@@ -5,10 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub fn home() -> PathBuf {
     let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var)
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/"))
+    std::env::var_os(var).or_else(|| std::env::var_os("HOME")).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
 /// Replaces `$VAR` and `${VAR}` with environment values (unset becomes empty).
@@ -25,14 +22,7 @@ pub fn expand_vars(s: &str) -> String {
                 }
             } else {
                 let starts = chars[i + 1].is_ascii_alphabetic() || chars[i + 1] == '_';
-                let len = if starts {
-                    chars[i + 1..]
-                        .iter()
-                        .take_while(|c| c.is_ascii_alphanumeric() || **c == '_')
-                        .count()
-                } else {
-                    0
-                };
+                let len = if starts { chars[i + 1..].iter().take_while(|c| c.is_ascii_alphanumeric() || **c == '_').count() } else { 0 };
                 (chars[i + 1..i + 1 + len].iter().collect::<String>(), i + 1 + len)
             };
             if !name.is_empty() {
@@ -84,9 +74,7 @@ pub fn tilde(p: &Path) -> String {
 }
 
 fn env_dir(var: &str) -> Option<PathBuf> {
-    std::env::var_os(var)
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
+    std::env::var_os(var).filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
 pub fn config_dir() -> PathBuf {
@@ -97,9 +85,7 @@ pub fn config_dir() -> PathBuf {
         return env_dir("APPDATA").unwrap_or_else(|| home().join("AppData/Roaming")).join("switchyard");
     }
     // XDG layout on macOS too: it is where developers keep dot-files.
-    env_dir("XDG_CONFIG_HOME")
-        .unwrap_or_else(|| home().join(".config"))
-        .join("switchyard")
+    env_dir("XDG_CONFIG_HOME").unwrap_or_else(|| home().join(".config")).join("switchyard")
 }
 
 pub fn state_dir() -> PathBuf {
@@ -109,9 +95,7 @@ pub fn state_dir() -> PathBuf {
     if cfg!(windows) {
         return local_app_data().join("switchyard").join("state");
     }
-    env_dir("XDG_STATE_HOME")
-        .unwrap_or_else(|| home().join(".local/state"))
-        .join("switchyard")
+    env_dir("XDG_STATE_HOME").unwrap_or_else(|| home().join(".local/state")).join("switchyard")
 }
 
 #[cfg(windows)]

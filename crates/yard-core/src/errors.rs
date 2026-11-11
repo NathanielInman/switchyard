@@ -4,9 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
-pub const MATCHERS: &[&str] = &[
-    "csharp", "rust", "go", "typescript", "gradle", "godot", "python", "generic",
-];
+pub const MATCHERS: &[&str] = &["csharp", "rust", "go", "typescript", "gradle", "godot", "python", "generic"];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ErrorHit {
@@ -35,61 +33,21 @@ fn matchers() -> &'static [Matcher] {
             location: loc.map(|l| Regex::new(l).unwrap()),
         };
         vec![
-            m(
-                "csharp",
-                r"^\s*(?P<file>[^\s(][^(]*?)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>CS\d+):",
-                None,
-            ),
+            m("csharp", r"^\s*(?P<file>[^\s(][^(]*?)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>CS\d+):", None),
             m("csharp", r"^\s*(?:\S+ )?: ?error (?P<code>(CS|MSB|NU)\d+):", None),
-            m(
-                "rust",
-                r"^error(\[E\d+\])?: ",
-                Some(r"^\s*--> (?P<file>[^:\s]+):(?P<line>\d+):(?P<col>\d+)"),
-            ),
-            m(
-                "go",
-                r"^(?:\./)?(?P<file>[^\s:]+\.go):(?P<line>\d+):(?P<col>\d+): ",
-                None,
-            ),
-            m(
-                "typescript",
-                r"^(?P<file>[^\s(]+\.[cm]?tsx?)\((?P<line>\d+),(?P<col>\d+)\): error TS\d+",
-                None,
-            ),
-            m(
-                "typescript",
-                r"^(?P<file>\S+\.[cm]?tsx?):(?P<line>\d+):(?P<col>\d+) - error TS\d+",
-                None,
-            ),
-            m(
-                "gradle",
-                r"^e: (?:file://)?(?P<file>[^:\s]+\.kts?):(?P<line>\d+):(?P<col>\d+) ",
-                None,
-            ),
-            m(
-                "gradle",
-                r"^(?P<file>\S+\.java):(?P<line>\d+): error: ",
-                None,
-            ),
+            m("rust", r"^error(\[E\d+\])?: ", Some(r"^\s*--> (?P<file>[^:\s]+):(?P<line>\d+):(?P<col>\d+)")),
+            m("go", r"^(?:\./)?(?P<file>[^\s:]+\.go):(?P<line>\d+):(?P<col>\d+): ", None),
+            m("typescript", r"^(?P<file>[^\s(]+\.[cm]?tsx?)\((?P<line>\d+),(?P<col>\d+)\): error TS\d+", None),
+            m("typescript", r"^(?P<file>\S+\.[cm]?tsx?):(?P<line>\d+):(?P<col>\d+) - error TS\d+", None),
+            m("gradle", r"^e: (?:file://)?(?P<file>[^:\s]+\.kts?):(?P<line>\d+):(?P<col>\d+) ", None),
+            m("gradle", r"^(?P<file>\S+\.java):(?P<line>\d+): error: ", None),
             m("gradle", r"^\* What went wrong:", None),
             m("gradle", r"^FAILURE: Build failed", None),
-            m(
-                "godot",
-                r"^(?:USER )?(?:SCRIPT )?ERROR: ",
-                Some(r"at: .*\((?P<file>res://[^:)]+):(?P<line>\d+)\)"),
-            ),
-            m(
-                "godot",
-                r"^(?:USER )?(?:SCRIPT )?ERROR: ",
-                Some(r"^\s*at: .*\((?P<file>[^:()]+\.(?:gd|cs|cpp|h)):(?P<line>\d+)\)"),
-            ),
+            m("godot", r"^(?:USER )?(?:SCRIPT )?ERROR: ", Some(r"at: .*\((?P<file>res://[^:)]+):(?P<line>\d+)\)")),
+            m("godot", r"^(?:USER )?(?:SCRIPT )?ERROR: ", Some(r"^\s*at: .*\((?P<file>[^:()]+\.(?:gd|cs|cpp|h)):(?P<line>\d+)\)")),
             m("godot", r"^Parse Error: ", None),
             m("godot", r"^Unhandled [Ee]xception", None),
-            m(
-                "python",
-                r"^Traceback \(most recent call last\)",
-                Some(r#"^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)"#),
-            ),
+            m("python", r"^Traceback \(most recent call last\)", Some(r#"^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)"#)),
             m("generic", r"(?i)^\s*(error|fatal)(\[[^\]]*\])?: ", None),
             m("generic", r"panicked at ", None),
             m("generic", r"(?i)^\s*(npm|yarn|pnpm) ERR!", None),
@@ -215,7 +173,10 @@ mod tests {
 
     #[test]
     fn csharp() {
-        let h = first("  Restoring...\nScripts/Combat/HitResolver.cs(212,17): error CS0103: The name 'critRoll' does not exist\n    1 Error(s)").unwrap();
+        let h = first(
+            "  Restoring...\nScripts/Combat/HitResolver.cs(212,17): error CS0103: The name 'critRoll' does not exist\n    1 Error(s)",
+        )
+        .unwrap();
         assert_eq!(h.index, 1);
         assert_eq!(h.file.as_deref(), Some("Scripts/Combat/HitResolver.cs"));
         assert_eq!(h.line, Some(212));
@@ -238,7 +199,9 @@ mod tests {
 
     #[test]
     fn godot_location() {
-        let h = first("Godot Engine v4.7\nSCRIPT ERROR: Invalid call. Nonexistent function 'foo'.\n   at: _ready (res://scripts/player.gd:42)").unwrap();
+        let h =
+            first("Godot Engine v4.7\nSCRIPT ERROR: Invalid call. Nonexistent function 'foo'.\n   at: _ready (res://scripts/player.gd:42)")
+                .unwrap();
         assert_eq!(h.file.as_deref(), Some("res://scripts/player.gd"));
         assert_eq!(h.line, Some(42));
     }
@@ -248,7 +211,9 @@ mod tests {
         assert_eq!(first("# pkg\n./main.go:10:2: undefined: foo").unwrap().line, Some(10));
         assert_eq!(first("src/a.ts(3,5): error TS2304: Cannot find name 'x'.").unwrap().file.as_deref(), Some("src/a.ts"));
         assert_eq!(first("e: file:///p/App.kt:12:5 Unresolved reference: foo").unwrap().file.as_deref(), Some("/p/App.kt"));
-        let p = first("Traceback (most recent call last):\n  File \"a.py\", line 1, in <module>\n  File \"b.py\", line 9, in f\nValueError: x").unwrap();
+        let p =
+            first("Traceback (most recent call last):\n  File \"a.py\", line 1, in <module>\n  File \"b.py\", line 9, in f\nValueError: x")
+                .unwrap();
         assert_eq!(p.file.as_deref(), Some("b.py"));
         assert_eq!(p.line, Some(9));
     }

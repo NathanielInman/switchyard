@@ -575,7 +575,11 @@ impl HistoryView {
                     cr.set_source_rgb(c.0, c.1, c.2);
                     crate::tile::rounded(cr, x, 0.0, sw, h as f64, 5.0);
                     let _ = cr.fill();
-                    let text = if s.attempts > 1 { format!("{} (try {}) {}", s.name, s.attempts, duration(s.secs)) } else { format!("{} {}", s.name, duration(s.secs)) };
+                    let text = if s.attempts > 1 {
+                        format!("{} (try {}) {}", s.name, s.attempts, duration(s.secs))
+                    } else {
+                        format!("{} {}", s.name, duration(s.secs))
+                    };
                     cr.set_source_rgb(0.106, 0.114, 0.125);
                     cr.set_font_size(11.0);
                     if let Ok(ext) = cr.text_extents(&text) {
@@ -628,7 +632,12 @@ impl HistoryView {
         let git = r
             .git
             .as_ref()
-            .map(|g| (g.sha[..g.sha.len().min(7)].to_string(), if g.dirty > 0 { format!("{} · {} dirty", g.branch, g.dirty) } else { g.branch.clone() }))
+            .map(|g| {
+                (
+                    g.sha[..g.sha.len().min(7)].to_string(),
+                    if g.dirty > 0 { format!("{} · {} dirty", g.branch, g.dirty) } else { g.branch.clone() },
+                )
+            })
             .unwrap_or_default();
         let facts = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         facts.set_homogeneous(true);

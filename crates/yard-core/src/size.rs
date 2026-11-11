@@ -5,9 +5,7 @@ pub fn parse_size(s: &str) -> Option<u64> {
     if s.is_empty() {
         return None;
     }
-    let split = s
-        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-        .unwrap_or(s.len());
+    let split = s.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(s.len());
     let (num, unit) = s.split_at(split);
     let n: f64 = num.parse().ok()?;
     let unit = unit.trim().to_ascii_lowercase();

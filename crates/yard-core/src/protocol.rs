@@ -176,13 +176,9 @@ pub struct BarLine {
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
     Snapshot(Box<Snapshot>),
-    Show {
-        anchor: Option<Anchor>,
-    },
+    Show { anchor: Option<Anchor> },
     Hide,
-    Toggle {
-        anchor: Option<Anchor>,
-    },
+    Toggle { anchor: Option<Anchor> },
     Bar(BarLine),
 }
 
@@ -234,10 +230,7 @@ mod tests {
     #[test]
     fn request_shapes() {
         let r: Request = serde_json::from_str(r#"{"cmd":"run","id":"x","params":{"seed":"1"}}"#).unwrap();
-        assert_eq!(
-            r,
-            Request::Run { id: "x".into(), params: [("seed".into(), "1".into())].into(), variant: None, clean: false }
-        );
+        assert_eq!(r, Request::Run { id: "x".into(), params: [("seed".into(), "1".into())].into(), variant: None, clean: false });
         let s = serde_json::to_string(&Request::Ack { phase: AckPhase::Open, id: None }).unwrap();
         assert_eq!(s, r#"{"cmd":"ack","phase":"open","id":null}"#);
         let e = serde_json::to_string(&Event::Hide).unwrap();

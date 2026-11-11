@@ -1,0 +1,4 @@
+# Matches how the code was written before rustfmt ran on it: long lines,
+# and one-line forms wherever they fit.
+max_width = 140
+use_small_heuristics = "Max"

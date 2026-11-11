@@ -23,10 +23,7 @@ pub fn parse_roundhouse(reply: &str) -> Option<MachineView> {
         .map(|a| {
             a.iter()
                 .filter_map(|r| {
-                    Some(MachineReason {
-                        level: r.get("level")?.as_str()?.to_string(),
-                        text: r.get("text")?.as_str()?.to_string(),
-                    })
+                    Some(MachineReason { level: r.get("level")?.as_str()?.to_string(), text: r.get("text")?.as_str()?.to_string() })
                 })
                 .collect()
         })

@@ -193,7 +193,8 @@ pub fn tile(p: &egui::Painter, rect: Rect, v: &TaskView, look: &TileLook) {
                 let seg = 0.28;
                 let x0 = (t * (1.0 + seg) - seg).max(0.0);
                 let x1 = (t * (1.0 + seg)).min(1.0);
-                let r = Rect::from_min_max(pos2(bar.left() + bar.width() * x0, bar.top()), pos2(bar.left() + bar.width() * x1, bar.bottom()));
+                let r =
+                    Rect::from_min_max(pos2(bar.left() + bar.width() * x0, bar.top()), pos2(bar.left() + bar.width() * x1, bar.bottom()));
                 p.rect_filled(r, CornerRadius::same(1), CAUTION.gamma_multiply(o));
                 -1.0
             }

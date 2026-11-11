@@ -33,10 +33,7 @@ pub struct History {
 
 impl History {
     pub fn load() -> History {
-        std::fs::read_to_string(paths::state_file())
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
+        std::fs::read_to_string(paths::state_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
     }
 
     pub fn save(&self) {
@@ -101,15 +98,7 @@ impl History {
     }
 
     pub fn frecency(&self, id: &str, now: f64) -> f64 {
-        self.tasks
-            .get(id)
-            .map(|t| {
-                t.runs
-                    .iter()
-                    .map(|r| 0.5f64.powf(((now - r) / 86400.0).max(0.0) / HALF_LIFE_DAYS))
-                    .sum()
-            })
-            .unwrap_or(0.0)
+        self.tasks.get(id).map(|t| t.runs.iter().map(|r| 0.5f64.powf(((now - r) / 86400.0).max(0.0) / HALF_LIFE_DAYS)).sum()).unwrap_or(0.0)
     }
 
     pub fn last_used(&self, id: &str) -> Option<f64> {

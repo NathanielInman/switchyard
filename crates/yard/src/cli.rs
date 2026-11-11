@@ -75,9 +75,8 @@ pub fn board(cmd: BoardCmd, rest: &[String]) -> Result<i32> {
         BoardCmd::Hide => Request::Hide,
         _ => {
             let (cfg, _) = Config::load();
-            let anchor = yard_core::hypr::anchor(&cfg.board.bar_namespace, center).or_else(|| {
-                center.then(|| yard_core::model::Anchor { center: true, ..Default::default() })
-            });
+            let anchor = yard_core::hypr::anchor(&cfg.board.bar_namespace, center)
+                .or_else(|| center.then(|| yard_core::model::Anchor { center: true, ..Default::default() }));
             match cmd {
                 BoardCmd::Toggle => Request::Toggle { anchor },
                 _ => Request::Show { anchor },
@@ -157,7 +156,11 @@ pub fn ls(rest: &[String]) -> Result<i32> {
         eprintln!("{} {}: {}", p.c("33", "!"), pr.file, pr.message);
     }
     if snap.tasks.is_empty() {
-        eprintln!("no tasks yet: set `scan` in {} or add files to {}", paths::tilde(&paths::config_file()), paths::tilde(&paths::overlay_dir()));
+        eprintln!(
+            "no tasks yet: set `scan` in {} or add files to {}",
+            paths::tilde(&paths::config_file()),
+            paths::tilde(&paths::overlay_dir())
+        );
     }
     Ok(0)
 }
@@ -302,7 +305,11 @@ fn check(ok: bool, what: &str, hint: &str) -> bool {
 pub fn doctor() -> Result<i32> {
     let mut all = true;
     let (cfg, problems) = Config::load();
-    all &= check(problems.is_empty(), &format!("config {}", paths::tilde(&paths::config_file())), &problems.iter().map(|p| p.message.clone()).collect::<Vec<_>>().join("; "));
+    all &= check(
+        problems.is_empty(),
+        &format!("config {}", paths::tilde(&paths::config_file())),
+        &problems.iter().map(|p| p.message.clone()).collect::<Vec<_>>().join("; "),
+    );
     let which = |b: &str| crate::supervise::which(b).is_some();
     let backend = crate::supervise::pick();
     check(true, &format!("task backend: {}", backend.name()), "");
@@ -325,7 +332,11 @@ pub fn doctor() -> Result<i32> {
     if hypr {
         let a = yard_core::hypr::anchor(&cfg.board.bar_namespace, false);
         let edge = a.as_ref().map(|a| format!("{:?}", a.edge).to_lowercase()).unwrap_or_default();
-        check(a.is_some(), &format!("bar \"{}\" found, {edge} edge", cfg.board.bar_namespace), "set board.bar_namespace to your bar's layer namespace");
+        check(
+            a.is_some(),
+            &format!("bar \"{}\" found, {edge} edge", cfg.board.bar_namespace),
+            "set board.bar_namespace to your bar's layer namespace",
+        );
     }
     let daemon = request(&Request::Ping);
     all &= check(daemon.is_ok(), "daemon", "run `yard setup`, or `yard daemon` in a terminal");
@@ -341,7 +352,8 @@ pub fn doctor() -> Result<i32> {
     // A sibling is optional, so its absence is never a failure.
     match yard_core::sibling::roundhouse() {
         Some(m) => {
-            let hold = if cfg.mainline.respect_roundhouse { "heavy builds wait while it says act" } else { "mainline.respect_roundhouse is off" };
+            let hold =
+                if cfg.mainline.respect_roundhouse { "heavy builds wait while it says act" } else { "mainline.respect_roundhouse is off" };
             check(true, &format!("Roundhouse: running, lamp {} ({hold})", m.level), "");
         }
         None => println!("     Roundhouse: not running (optional; it can hold heavy builds when the machine needs attention)"),
@@ -388,7 +400,9 @@ fn read(p: &Path) -> String {
 }
 
 pub fn scaffold(dir: &Path, id: &str) -> String {
-    let mut out = String::from("# Switchyard tasks for this repo. Reference: https://github.com/NathanielInman/switchyard/blob/main/docs/design.md\n\n");
+    let mut out = String::from(
+        "# Switchyard tasks for this repo. Reference: https://github.com/NathanielInman/switchyard/blob/main/docs/design.md\n\n",
+    );
     let godot = dir.join("project.godot");
     if godot.exists() {
         let proj = read(&godot);
@@ -397,9 +411,8 @@ pub fn scaffold(dir: &Path, id: &str) -> String {
             .find_map(|l| l.trim().strip_prefix("run/main_scene="))
             .map(|s| s.trim_matches('"').to_string())
             .unwrap_or_else(|| "res://Main.tscn".into());
-        let csharp = std::fs::read_dir(dir)
-            .map(|rd| rd.flatten().any(|e| e.path().extension().is_some_and(|x| x == "csproj")))
-            .unwrap_or(false);
+        let csharp =
+            std::fs::read_dir(dir).map(|rd| rd.flatten().any(|e| e.path().extension().is_some_and(|x| x == "csproj"))).unwrap_or(false);
         let mut steps = vec![];
         if csharp {
             steps.push("\"dotnet build\"".to_string());

@@ -69,7 +69,12 @@ pub fn sibling(name: &str) -> std::path::PathBuf {
 fn claim() -> Result<std::fs::File, std::fs::TryLockError> {
     let dir = yard_core::paths::runtime_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let f = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join("tray.lock")).map_err(std::fs::TryLockError::Error)?;
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join("tray.lock"))
+        .map_err(std::fs::TryLockError::Error)?;
     f.try_lock()?;
     Ok(f)
 }
