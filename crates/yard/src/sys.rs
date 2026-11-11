@@ -178,7 +178,7 @@ pub fn pacman_tools() -> Vec<ShelfItem> {
     for (pkg, list) in bins {
         let desc = descs.get(&pkg).cloned().unwrap_or_default();
         // Prefer the binary named like the package; otherwise list them all.
-        if list.iter().any(|b| *b == pkg) {
+        if list.contains(&pkg) {
             out.push(ShelfItem { name: pkg.clone(), desc, cmd: None });
         } else {
             for b in list.into_iter().take(4) {

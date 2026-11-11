@@ -17,3 +17,6 @@ glob.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+
+[lints]
+workspace = true

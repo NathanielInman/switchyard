@@ -47,9 +47,9 @@ pub fn human(bytes: u64) -> String {
 pub fn systemd(bytes: u64) -> String {
     const G: u64 = 1024 * 1024 * 1024;
     const M: u64 = 1024 * 1024;
-    if bytes % G == 0 {
+    if bytes.is_multiple_of(G) {
         format!("{}G", bytes / G)
-    } else if bytes % M == 0 {
+    } else if bytes.is_multiple_of(M) {
         format!("{}M", bytes / M)
     } else {
         bytes.to_string()

@@ -18,6 +18,11 @@ anyhow = "1"
 glob = "0.3"
 libc = "0.2"
 
+# GTK and egui callbacks live in RefCell<Option<Rc<dyn Fn(..)>>> fields;
+# naming each one would hide the shape, not simplify it.
+[workspace.lints.clippy]
+type_complexity = "allow"
+
 [profile.release]
 lto = "thin"
 codegen-units = 4

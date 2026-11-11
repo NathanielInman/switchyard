@@ -134,12 +134,10 @@ impl LogView {
             _ => crate::tile::status_line(v, now),
         };
         self.message.set_text(&msg);
-        for c in ["message"] {
-            if matches!(v.phase, Phase::Failed | Phase::Seen) {
-                self.message.add_css_class(c);
-            } else {
-                self.message.remove_css_class(c);
-            }
+        if matches!(v.phase, Phase::Failed | Phase::Seen) {
+            self.message.add_css_class("message");
+        } else {
+            self.message.remove_css_class("message");
         }
         self.path.set_text(&v.log);
         let has_err = v.error.is_some();

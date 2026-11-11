@@ -242,7 +242,7 @@ impl HistState {
     /// One task's runs as bars, and a card for the selected one.
     pub fn strip(&mut self, ui: &mut egui::Ui, now: f64) -> Option<Action> {
         let runs = self.strip_runs();
-        let Some(task) = self.strip_task.clone() else { return None };
+        let task = self.strip_task.clone()?;
         let label = runs.last().map(|r| r.label.clone()).unwrap_or(task.clone());
         let callout = self
             .episodes()

@@ -46,25 +46,6 @@ fn stable_dir(dir: &Path) -> PathBuf {
     dir.to_path_buf()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stable_dirs() {
-        assert_eq!(stable_dir(Path::new("/opt/homebrew/Cellar/switchyard/0.1.0/bin")), PathBuf::from("/opt/homebrew/bin"));
-        assert_eq!(
-            stable_dir(Path::new("/home/linuxbrew/.linuxbrew/Cellar/switchyard/0.2.0/bin")),
-            PathBuf::from("/home/linuxbrew/.linuxbrew/bin")
-        );
-        assert_eq!(
-            stable_dir(Path::new(r"C:\Users\n\scoop\apps\switchyard\0.1.0")),
-            PathBuf::from(r"C:\Users\n\scoop\apps\switchyard\current")
-        );
-        assert_eq!(stable_dir(Path::new("/home/n/.local/bin")), PathBuf::from("/home/n/.local/bin"));
-    }
-}
-
 fn bin(name: &str) -> PathBuf {
     bin_dir().join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
 }
@@ -162,6 +143,25 @@ fn hints() {
         "\nnext:\n  1. waybar: add \"custom/switchyard\" to a modules list and define it as\n       \"custom/switchyard\": {{ \"exec\": \"{0} bar\", \"return-type\": \"json\", \"on-click\": \"{0} toggle\", \"on-click-right\": \"{0} ack\" }}\n  2. Hyprland: hl.bind(\"SUPER + Y\", hl.dsp.exec_cmd(\"{0} toggle --center\"))\n  3. in a repo: yard add",
         bin("yard").display()
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_dirs() {
+        assert_eq!(stable_dir(Path::new("/opt/homebrew/Cellar/switchyard/0.1.0/bin")), PathBuf::from("/opt/homebrew/bin"));
+        assert_eq!(
+            stable_dir(Path::new("/home/linuxbrew/.linuxbrew/Cellar/switchyard/0.2.0/bin")),
+            PathBuf::from("/home/linuxbrew/.linuxbrew/bin")
+        );
+        assert_eq!(
+            stable_dir(Path::new(r"C:\Users\n\scoop\apps\switchyard\0.1.0")),
+            PathBuf::from(r"C:\Users\n\scoop\apps\switchyard\current")
+        );
+        assert_eq!(stable_dir(Path::new("/home/n/.local/bin")), PathBuf::from("/home/n/.local/bin"));
+    }
 }
 
 // ------------------------------------------------------------------ macOS

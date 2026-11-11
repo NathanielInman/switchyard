@@ -1312,7 +1312,7 @@ impl Daemon {
             }
         }
         let ids: Vec<u64> = self.runs.keys().copied().collect();
-        let sample = self.ticks % 2 == 0;
+        let sample = self.ticks.is_multiple_of(2);
         for id in ids {
             self.watch_run(id, sample);
         }
@@ -1329,13 +1329,13 @@ impl Daemon {
         if self.machine_at.is_none_or(|t| t.elapsed() >= Duration::from_secs(every)) {
             self.refresh_machine();
         }
-        if self.ticks % 3 == 0 {
+        if self.ticks.is_multiple_of(3) {
             self.reload(false);
         }
         if self.board_visible && self.git_at.is_none_or(|g| g.elapsed() > Duration::from_secs(30)) {
             self.refresh_git(false);
         }
-        if self.history_dirty && self.ticks % 2 == 0 {
+        if self.history_dirty && self.ticks.is_multiple_of(2) {
             self.history.save();
             self.history_dirty = false;
         }
@@ -1398,7 +1398,7 @@ impl Daemon {
     }
 
     fn scan_captures(&mut self) {
-        if self.ticks % 2 != 0 {
+        if !self.ticks.is_multiple_of(2) {
             return;
         }
         let mut found: Vec<(String, String, String, usize)> = vec![];

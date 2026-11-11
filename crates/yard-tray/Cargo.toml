@@ -23,3 +23,6 @@ winit = "0.30"
 
 [build-dependencies]
 embed-resource = "3.0.12"
+
+[lints]
+workspace = true

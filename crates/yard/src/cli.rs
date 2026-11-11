@@ -479,41 +479,6 @@ pub fn scaffold(dir: &Path, id: &str) -> String {
     out
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn scaffolds_godot_and_cargo() {
-        let d = std::env::temp_dir().join(format!("yard-scaffold-{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&d);
-        std::fs::write(d.join("project.godot"), "[application]\nrun/main_scene=\"res://Boot.tscn\"\n").unwrap();
-        std::fs::write(d.join("Game.csproj"), "").unwrap();
-        let s = scaffold(&d, "game");
-        assert!(s.contains("res://Boot.tscn"));
-        assert!(s.contains("dotnet build"));
-        let mut p = vec![];
-        let tasks = yard_core::manifest::parse_manifest(&s, &d.join(".yard.toml"), yard_core::manifest::Origin::Repo, &d, &mut p);
-        assert!(p.is_empty(), "{p:?}");
-        assert_eq!(tasks[0].retry.as_ref().unwrap().step, Some(2));
-        let _ = std::fs::remove_dir_all(&d);
-        let d = std::env::temp_dir().join(format!("yard-scaffold-c-{}", std::process::id()));
-        std::fs::create_dir_all(d.join("src")).unwrap();
-        std::fs::write(d.join("Cargo.toml"), "[package]\nname='x'\n").unwrap();
-        std::fs::write(d.join("src/main.rs"), "").unwrap();
-        let s = scaffold(&d, "x");
-        let tasks = yard_core::manifest::parse_manifest(&s, &d.join(".yard.toml"), yard_core::manifest::Origin::Repo, &d, &mut p);
-        assert!(p.is_empty(), "{p:?}");
-        assert_eq!(tasks.len(), 2);
-        let _ = std::fs::remove_dir_all(&d);
-    }
-
-    #[test]
-    fn durations_render() {
-        assert_eq!(duration(65.0), "1m 5s");
-    }
-}
-
 /// `yard history [id] [--json]`: the episode feed in the terminal.
 pub fn history(rest: &[String]) -> Result<i32> {
     let json = rest.iter().any(|a| a == "--json");
@@ -562,4 +527,39 @@ pub fn history(rest: &[String]) -> Result<i32> {
     }
     println!("\n{} {}", p.c("1", "this week"), parts.join(" · "));
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scaffolds_godot_and_cargo() {
+        let d = std::env::temp_dir().join(format!("yard-scaffold-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&d);
+        std::fs::write(d.join("project.godot"), "[application]\nrun/main_scene=\"res://Boot.tscn\"\n").unwrap();
+        std::fs::write(d.join("Game.csproj"), "").unwrap();
+        let s = scaffold(&d, "game");
+        assert!(s.contains("res://Boot.tscn"));
+        assert!(s.contains("dotnet build"));
+        let mut p = vec![];
+        let tasks = yard_core::manifest::parse_manifest(&s, &d.join(".yard.toml"), yard_core::manifest::Origin::Repo, &d, &mut p);
+        assert!(p.is_empty(), "{p:?}");
+        assert_eq!(tasks[0].retry.as_ref().unwrap().step, Some(2));
+        let _ = std::fs::remove_dir_all(&d);
+        let d = std::env::temp_dir().join(format!("yard-scaffold-c-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("src")).unwrap();
+        std::fs::write(d.join("Cargo.toml"), "[package]\nname='x'\n").unwrap();
+        std::fs::write(d.join("src/main.rs"), "").unwrap();
+        let s = scaffold(&d, "x");
+        let tasks = yard_core::manifest::parse_manifest(&s, &d.join(".yard.toml"), yard_core::manifest::Origin::Repo, &d, &mut p);
+        assert!(p.is_empty(), "{p:?}");
+        assert_eq!(tasks.len(), 2);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn durations_render() {
+        assert_eq!(duration(65.0), "1m 5s");
+    }
 }
