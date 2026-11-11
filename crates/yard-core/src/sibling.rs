@@ -28,7 +28,9 @@ pub fn parse_roundhouse(reply: &str) -> Option<MachineView> {
                 .collect()
         })
         .unwrap_or_default();
-    Some(MachineView { level, reasons })
+    let sends_hold = lamp.get("hold").is_some();
+    let hold = lamp.get("hold").and_then(Value::as_str).map(String::from);
+    Some(MachineView { level, reasons, hold, sends_hold })
 }
 
 /// Sends one request line to Roundhouse and returns its reply line, or
@@ -88,13 +90,24 @@ mod tests {
         let m = parse_roundhouse(reply).unwrap();
         assert_eq!(m.level, "act");
         assert_eq!(m.reasons.len(), 2);
-        assert_eq!(m.act_reason(), Some("/data is 96% full"));
+        assert_eq!(m.hold_reason(), Some("/data is 96% full"));
+    }
+
+    #[test]
+    fn follows_the_hold_roundhouse_sends() {
+        // A CPU at its limit is act, but heat is not a reason to hold.
+        let reply = r#"{"ok":true,"snapshot":{"lamp":{"level":"act","reasons":[
+            {"level":"act","text":"CPU is slowing itself down for heat","tab":"machine","key":"cpu.throttle"}],"hold":null}}}"#;
+        assert_eq!(parse_roundhouse(reply).unwrap().hold_reason(), None);
+        // A recording session holds while the lamp is calm.
+        let reply = r#"{"ok":true,"snapshot":{"lamp":{"level":"calm","reasons":[],"hold":"a recording session is on"}}}"#;
+        assert_eq!(parse_roundhouse(reply).unwrap().hold_reason(), Some("a recording session is on"));
     }
 
     #[test]
     fn calm_and_broken_replies() {
         let m = parse_roundhouse(r#"{"ok":true,"snapshot":{"lamp":{"level":"calm","reasons":[]}}}"#).unwrap();
-        assert_eq!(m.act_reason(), None);
+        assert_eq!(m.hold_reason(), None);
         assert!(parse_roundhouse(r#"{"ok":false,"error":"x"}"#).is_none());
         assert!(parse_roundhouse(r#"{"ok":true,"snapshot":{}}"#).is_none());
         assert!(parse_roundhouse("not json").is_none());

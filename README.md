@@ -366,10 +366,11 @@ one lamp in the bar that opens a drawer with CPU, GPU, memory pressure,
 network, every disk and share, and memory by app. Each works alone. When both
 run:
 
-- Switchyard holds the next heavy build while Roundhouse says the machine
-  needs acting on, and the waiting tile says why ("held: Roundhouse says
-  /data is 96% full"). It starts on its own once the lamp calms down. Turn it
-  off with `mainline.respect_roundhouse = false`.
+- Switchyard holds the next heavy build while Roundhouse says it should wait
+  (a disk filling up, memory stalling, or a recording session started with
+  `rh session on`), and the waiting tile says why ("held: Roundhouse says
+  /data is 96% full"). It starts on its own once that clears. Turn it off
+  with `mainline.respect_roundhouse = false`.
 - Each panel links to the other from the end of its tab row: `● Roundhouse ↗`
   here, its dot the machine lamp, and `● Switchyard ↗` in Roundhouse's drawer,
   its dot what Switchyard is doing. A click (or the link's number key) closes

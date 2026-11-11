@@ -158,9 +158,11 @@ below `mainline.min_free`. Each heavy build gets `MemoryMax` from the task or
 tasks never wait.
 
 When a sibling [Roundhouse](https://github.com/NathanielInman/roundhouse) is
-running and its lamp says `act` (memory stalling, a filesystem past 95%, a CPU
-or GPU at its limit), the head of the queue also waits, with the reason as its
-message: "held: Roundhouse says /data is 96% full". The daemon asks Roundhouse
+running and says heavy work should wait (`lamp.hold`: memory stalling, a
+filesystem past 95%, or a recording session), the head of the queue also
+waits, with the reason as its message: "held: Roundhouse says /data is 96%
+full". A hot CPU or GPU does not hold builds, since the build is what heats
+it. A Roundhouse too old to send `lamp.hold` holds on any `act` reason. The daemon asks Roundhouse
 every 5 seconds, every second while a build is held, and starts the build on
 the first calm answer. `mainline.respect_roundhouse = false` turns this off;
 without Roundhouse it does nothing. See [Siblings](#siblings).
@@ -230,7 +232,7 @@ What Switchyard uses from Roundhouse:
 
 | Request | Used for |
 |---|---|
-| `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level` and `lamp.reasons[].level`/`text`: holds the main line on `act`, shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
+| `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level`, `lamp.reasons[].level`/`text` and `lamp.hold`: holds the main line while `hold` is set (or, from a Roundhouse without `hold`, on `act`), shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
 | `{"cmd":"hide"}` on `rh.sock` | Sent by the board when it opens, so Roundhouse's drawer closes. |
 | `{"cmd":"show","anchor":{...}}` on `rh.sock` | The board's Roundhouse link: the board closes and the drawer opens from the anchor the board opened with. |
 

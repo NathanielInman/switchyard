@@ -244,6 +244,14 @@ pub struct Snapshot {
 pub struct MachineView {
     pub level: String,
     pub reasons: Vec<MachineReason>,
+    /// Roundhouse's own word on whether heavy work should wait (`lamp.hold`):
+    /// a recording session, or an act reason more work would make worse.
+    #[serde(default)]
+    pub hold: Option<String>,
+    /// Roundhouse sent `lamp.hold` (0.3 and later). An older one does not,
+    /// and then any act reason holds.
+    #[serde(default)]
+    pub sends_hold: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -253,8 +261,12 @@ pub struct MachineReason {
 }
 
 impl MachineView {
-    /// The first reason Roundhouse says needs acting on.
-    pub fn act_reason(&self) -> Option<&str> {
+    /// Why Roundhouse says heavy work should wait: its `lamp.hold`, or, from
+    /// a Roundhouse too old to send one, the first reason that needs acting on.
+    pub fn hold_reason(&self) -> Option<&str> {
+        if self.sends_hold {
+            return self.hold.as_deref();
+        }
         if self.level != "act" {
             return None;
         }

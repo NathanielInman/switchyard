@@ -783,7 +783,7 @@ impl Daemon {
         if !self.cfg.mainline.respect_roundhouse {
             return None;
         }
-        self.machine.as_ref()?.act_reason().map(String::from)
+        self.machine.as_ref()?.hold_reason().map(String::from)
     }
 
     /// Asks a sibling Roundhouse for its lamp, off the event loop.
