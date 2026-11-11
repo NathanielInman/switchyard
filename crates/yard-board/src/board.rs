@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use yard_core::manifest::Confirm;
 use yard_core::model::*;
 use yard_core::protocol::{AckPhase, Event, OpenWhat, Reply, Request};
+use yard_core::search::{rank, ranked, score};
 use yard_core::size::human;
 
 pub enum Msg {
@@ -151,45 +152,6 @@ fn label(text: &str, class: &str) -> gtk::Label {
     }
     l.set_xalign(0.0);
     l
-}
-
-/// Subsequence match with a score: earlier and contiguous hits score higher.
-fn fuzzy(hay: &str, needle: &str) -> Option<i64> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    let hay: Vec<char> = hay.to_lowercase().chars().collect();
-    let mut score = 0i64;
-    let mut pos = 0usize;
-    let mut last: Option<usize> = None;
-    for n in needle.to_lowercase().chars() {
-        let found = hay[pos..].iter().position(|c| *c == n)? + pos;
-        score += 10 - (found as i64).min(9);
-        if last.is_some_and(|l| l + 1 == found) {
-            score += 8;
-        }
-        last = Some(found);
-        pos = found + 1;
-    }
-    Some(score)
-}
-
-/// Shelf items matching `q`, best first. `fuzzy` takes the first letters it
-/// finds, so on its own "paste" scores a bind that spells it across
-/// "workspace · switch desktop" about the same as one tagged "paste". A
-/// substring hit in the name or description ranks above every scattered one.
-fn ranked<'a>(items: &'a [ShelfItem], q: &str) -> Vec<&'a ShelfItem> {
-    let ql = q.to_lowercase();
-    let mut hits: Vec<(i64, &ShelfItem)> = items
-        .iter()
-        .filter_map(|t| {
-            let hay = format!("{} {}", t.name, t.desc);
-            let s = fuzzy(&hay, q)?;
-            Some((if !ql.is_empty() && hay.to_lowercase().contains(&ql) { s + 1000 } else { s }, t))
-        })
-        .collect();
-    hits.sort_by(|a, b| b.0.cmp(&a.0));
-    hits.into_iter().map(|(_, t)| t).collect()
 }
 
 impl Board {
@@ -1015,7 +977,7 @@ impl Board {
                 .iter()
                 .filter_map(|t| {
                     let hay = format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description);
-                    fuzzy(&hay, &q).map(|sc| (sc, t))
+                    score(&hay, &q).map(|sc| (sc, t))
                 })
                 .collect();
             scored.sort_by(|a, b| {
@@ -1273,8 +1235,8 @@ impl Board {
         };
         let mut headers = 0;
         if let Some(s) = &snap {
-            let tasks: Vec<&TaskView> =
-                s.tasks.iter().filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some()).collect();
+            let shelved: Vec<&TaskView> = s.tasks.iter().filter(|t| t.shelf || t.stale).collect();
+            let tasks = rank(&shelved, &q, |t| format!("{} {}", t.label, t.description));
             if !tasks.is_empty() {
                 section(&self.shelf_list, "TASKS");
                 rows.push(ShelfRow::Bind);
@@ -2085,32 +2047,4 @@ fn find_monitor(name: &str) -> Option<gdk::Monitor> {
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{fuzzy, ranked};
-    use yard_core::model::ShelfItem;
-
-    #[test]
-    fn fuzzy_ranks() {
-        assert!(fuzzy("lanternfall", "lf").is_some());
-        assert!(fuzzy("lanternfall", "xz").is_none());
-        assert!(fuzzy("lanternfall", "lan").unwrap() > fuzzy("lanternfall", "lnl").unwrap());
-        assert_eq!(fuzzy("anything", ""), Some(0));
-    }
-
-    #[test]
-    fn substring_hits_rank_first() {
-        let item = |name: &str, desc: &str| ShelfItem { name: name.into(), desc: desc.into(), cmd: None };
-        let binds = vec![
-            item("SUPER + 1", "Go to workspace 1 · switch desktop"),
-            item("SUPER + ALT + V", "Clipboard history · paste copy"),
-            item("SUPER + Q", "Close window · quit"),
-        ];
-        let names: Vec<&str> = ranked(&binds, "paste").iter().map(|t| t.name.as_str()).collect();
-        assert_eq!(names, ["SUPER + ALT + V", "SUPER + 1"]);
-        let all: Vec<&str> = ranked(&binds, "").iter().map(|t| t.name.as_str()).collect();
-        assert_eq!(all, ["SUPER + 1", "SUPER + ALT + V", "SUPER + Q"]);
-    }
 }

@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use yard_core::manifest::Confirm;
 use yard_core::model::*;
 use yard_core::protocol::{AckPhase, Event, OpenWhat, Reply, Request, SubKind};
+use yard_core::search::{rank, ranked, score};
 use yard_core::size::human;
 
 pub const WIDTH: f32 = 680.0;
@@ -155,42 +156,6 @@ fn connection(tx: Sender<Msg>, ctx: egui::Context) {
         }
         std::thread::sleep(Duration::from_millis(800));
     }
-}
-
-fn fuzzy(hay: &str, needle: &str) -> Option<i64> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    let hay: Vec<char> = hay.to_lowercase().chars().collect();
-    let (mut score, mut pos, mut last) = (0i64, 0usize, None::<usize>);
-    for n in needle.to_lowercase().chars() {
-        let found = hay[pos..].iter().position(|c| *c == n)? + pos;
-        score += 10 - (found as i64).min(9);
-        if last.is_some_and(|l| l + 1 == found) {
-            score += 8;
-        }
-        last = Some(found);
-        pos = found + 1;
-    }
-    Some(score)
-}
-
-/// Shelf items matching `q`, best first. `fuzzy` takes the first letters it
-/// finds, so on its own "paste" scores a bind that spells it across
-/// "workspace · switch desktop" about the same as one tagged "paste". A
-/// substring hit in the name or description ranks above every scattered one.
-fn ranked<'a>(items: &'a [ShelfItem], q: &str) -> Vec<&'a ShelfItem> {
-    let ql = q.to_lowercase();
-    let mut hits: Vec<(i64, &ShelfItem)> = items
-        .iter()
-        .filter_map(|t| {
-            let hay = format!("{} {}", t.name, t.desc);
-            let s = fuzzy(&hay, q)?;
-            Some((if !ql.is_empty() && hay.to_lowercase().contains(&ql) { s + 1000 } else { s }, t))
-        })
-        .collect();
-    hits.sort_by(|a, b| b.0.cmp(&a.0));
-    hits.into_iter().map(|(_, t)| t).collect()
 }
 
 fn letter(k: Key) -> Option<char> {
@@ -430,7 +395,7 @@ impl App {
                 .tasks
                 .iter()
                 .filter_map(|t| {
-                    fuzzy(&format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), &self.filter).map(|sc| (sc, t))
+                    score(&format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), &self.filter).map(|sc| (sc, t))
                 })
                 .collect();
             scored.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.frecency.partial_cmp(&a.1.frecency).unwrap_or(std::cmp::Ordering::Equal)));
@@ -1372,8 +1337,8 @@ impl App {
         let now = self.now();
         let q = self.filter.clone();
         if let Some(s) = self.snap.as_ref() {
-            let tasks: Vec<&TaskView> =
-                s.tasks.iter().filter(|t| (t.shelf || t.stale) && fuzzy(&format!("{} {}", t.label, t.description), &q).is_some()).collect();
+            let shelved: Vec<&TaskView> = s.tasks.iter().filter(|t| t.shelf || t.stale).collect();
+            let tasks = rank(&shelved, &q, |t| format!("{} {}", t.label, t.description));
             if !tasks.is_empty() {
                 rows.push(ShelfRow::Section("TASKS".into()));
                 rows.extend(tasks.into_iter().map(|t| ShelfRow::Task(t.id.clone(), t.label.clone(), draw::status_line(t, now))));

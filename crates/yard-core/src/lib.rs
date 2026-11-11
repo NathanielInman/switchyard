@@ -1,5 +1,5 @@
 //! Shared pieces of Switchyard: config, manifests, the snapshot model, the
-//! socket protocol, error matchers and Hyprland queries.
+//! socket protocol, error matchers, search ranking and Hyprland queries.
 
 pub mod config;
 pub mod errors;
@@ -9,6 +9,7 @@ pub mod manifest;
 pub mod model;
 pub mod paths;
 pub mod protocol;
+pub mod search;
 pub mod sibling;
 pub mod size;
 pub mod transport;
