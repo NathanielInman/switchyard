@@ -16,6 +16,9 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # A healthy run takes about 3 minutes; without a limit a hung step
+    # holds the runner for 6 hours.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -23,10 +26,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Linux libraries
         if: runner.os == 'Linux'
+        timeout-minutes: 10
         run: .github/scripts/gtk4-layer-shell.sh
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --all --check
       - name: Build
         env:
           PKG_CONFIG_PATH: /usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig
@@ -35,6 +44,11 @@ jobs:
         env:
           PKG_CONFIG_PATH: /usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig
         run: cargo test --workspace --locked
+      # On every OS: the tray's macOS and Windows code only compiles there.
+      - name: Clippy
+        env:
+          PKG_CONFIG_PATH: /usr/local/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Doctor
         run: cargo run -q -p yard -- doctor
         continue-on-error: true

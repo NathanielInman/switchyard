@@ -382,7 +382,10 @@ run:
 Switchyard is young and built for one person's desktop first: Arch,
 Hyprland, waybar. CI builds and runs the end-to-end tests on Linux, macOS and
 Windows on every push; other wlroots compositors get the board without the
-anchoring. Issues and pull requests are welcome.
+anchoring. Issues and pull requests are welcome. CI checks the same three
+things you can run first: `cargo fmt --all --check`,
+`cargo clippy --workspace --all-targets -- -D warnings` and
+`cargo test --workspace`.
 
 ## License
 
