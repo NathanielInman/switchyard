@@ -145,25 +145,6 @@ fn hints() {
     );
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stable_dirs() {
-        assert_eq!(stable_dir(Path::new("/opt/homebrew/Cellar/switchyard/0.1.0/bin")), PathBuf::from("/opt/homebrew/bin"));
-        assert_eq!(
-            stable_dir(Path::new("/home/linuxbrew/.linuxbrew/Cellar/switchyard/0.2.0/bin")),
-            PathBuf::from("/home/linuxbrew/.linuxbrew/bin")
-        );
-        assert_eq!(
-            stable_dir(Path::new(r"C:\Users\n\scoop\apps\switchyard\0.1.0")),
-            PathBuf::from(r"C:\Users\n\scoop\apps\switchyard\current")
-        );
-        assert_eq!(stable_dir(Path::new("/home/n/.local/bin")), PathBuf::from("/home/n/.local/bin"));
-    }
-}
-
 // ------------------------------------------------------------------ macOS
 
 #[cfg(target_os = "macos")]
@@ -222,7 +203,7 @@ fn plist(label: &str, args: &[String], keep_alive: bool) -> String {
 fn install(no_start: bool) -> Result<()> {
     std::fs::create_dir_all(paths::home().join("Library/LaunchAgents"))?;
     std::fs::create_dir_all(paths::state_dir())?;
-    let daemon = format!("{LABEL}");
+    let daemon = LABEL.to_string();
     let tray = format!("{LABEL}.tray");
     std::fs::write(agent(&daemon), plist(&daemon, &[bin("yard").to_string_lossy().into(), "daemon".into()], true))?;
     let mut labels = vec![daemon];
@@ -342,4 +323,23 @@ pub fn start_service() -> bool {
 #[cfg(windows)]
 fn hints() {
     println!("\nnext:\n  1. the signal is in your system tray; click it to open the board\n  2. in a repo: yard add");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_dirs() {
+        assert_eq!(stable_dir(Path::new("/opt/homebrew/Cellar/switchyard/0.1.0/bin")), PathBuf::from("/opt/homebrew/bin"));
+        assert_eq!(
+            stable_dir(Path::new("/home/linuxbrew/.linuxbrew/Cellar/switchyard/0.2.0/bin")),
+            PathBuf::from("/home/linuxbrew/.linuxbrew/bin")
+        );
+        assert_eq!(
+            stable_dir(Path::new(r"C:\Users\n\scoop\apps\switchyard\0.1.0")),
+            PathBuf::from(r"C:\Users\n\scoop\apps\switchyard\current")
+        );
+        assert_eq!(stable_dir(Path::new("/home/n/.local/bin")), PathBuf::from("/home/n/.local/bin"));
+    }
 }
