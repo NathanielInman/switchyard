@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use yard_core::manifest::Confirm;
 use yard_core::model::*;
 use yard_core::protocol::{AckPhase, Event, OpenWhat, Reply, Request, SubKind};
-use yard_core::search::{rank, ranked, score};
+use yard_core::search::{floor, rank, ranked, score, shelf_hay, split_tags};
 use yard_core::size::human;
 
 pub const WIDTH: f32 = 680.0;
@@ -391,13 +391,12 @@ impl App {
     fn visible_tasks(&self) -> Vec<TaskView> {
         let Some(s) = self.snap.as_ref() else { return vec![] };
         if !self.filter.is_empty() {
-            let mut scored: Vec<(i64, &TaskView)> = s
-                .tasks
-                .iter()
-                .filter_map(|t| {
-                    score(&format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), &self.filter).map(|sc| (sc, t))
-                })
-                .collect();
+            let q = &self.filter;
+            let hays: Vec<(String, &TaskView)> =
+                s.tasks.iter().map(|t| (format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), t)).collect();
+            let min = floor(hays.iter().map(|h| &h.0), q);
+            let mut scored: Vec<(i64, &TaskView)> =
+                hays.iter().filter_map(|(hay, t)| score(hay, q).filter(|sc| *sc >= min).map(|sc| (sc, *t))).collect();
             scored.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.frecency.partial_cmp(&a.1.frecency).unwrap_or(std::cmp::Ordering::Equal)));
             return scored.into_iter().map(|(_, t)| t.clone()).collect();
         }
@@ -1336,23 +1335,26 @@ impl App {
         let mut rows = vec![];
         let now = self.now();
         let q = self.filter.clone();
-        if let Some(s) = self.snap.as_ref() {
-            let shelved: Vec<&TaskView> = s.tasks.iter().filter(|t| t.shelf || t.stale).collect();
-            let tasks = rank(&shelved, &q, |t| format!("{} {}", t.label, t.description));
-            if !tasks.is_empty() {
-                rows.push(ShelfRow::Section("TASKS".into()));
-                rows.extend(tasks.into_iter().map(|t| ShelfRow::Task(t.id.clone(), t.label.clone(), draw::status_line(t, now))));
-            }
+        let shelved: Vec<&TaskView> = self.snap.iter().flat_map(|s| &s.tasks).filter(|t| t.shelf || t.stale).collect();
+        let task_hay = |t: &&TaskView| format!("{} {}", t.label, t.description);
+        // One floor for every section, so an exact hit in one hides the
+        // scattered matches in all of them.
+        let min =
+            floor(shelved.iter().map(task_hay).chain(self.shelf.iter().flat_map(|d| d.tools.iter().chain(&d.binds)).map(shelf_hay)), &q);
+        let tasks = rank(&shelved, &q, min, task_hay);
+        if !tasks.is_empty() {
+            rows.push(ShelfRow::Section("TASKS".into()));
+            rows.extend(tasks.into_iter().map(|t| ShelfRow::Task(t.id.clone(), t.label.clone(), draw::status_line(t, now))));
         }
         match &self.shelf {
             None => rows.push(ShelfRow::Section("loading tools…".into())),
             Some(d) => {
-                let tools = ranked(&d.tools, &q);
+                let tools = ranked(&d.tools, &q, min);
                 if !tools.is_empty() {
                     rows.push(ShelfRow::Section("TOOLS".into()));
                     rows.extend(tools.into_iter().map(|t| ShelfRow::Tool(t.name.clone(), t.desc.clone())));
                 }
-                let binds = ranked(&d.binds, &q);
+                let binds = ranked(&d.binds, &q, min);
                 if !binds.is_empty() {
                     rows.push(ShelfRow::Section("KEY BINDS".into()));
                     rows.extend(binds.into_iter().map(|t| ShelfRow::Bind(t.name.clone(), t.desc.clone())));
@@ -1379,8 +1381,20 @@ impl App {
                         if i == self.shelf_sel || resp.hovered() {
                             ui.painter().rect_filled(rect, CornerRadius::same(6), TILE_HOVER);
                         }
-                        ui.painter().text(pos2(rect.left() + 8.0, rect.center().y), Align2::LEFT_CENTER, name, mono(12.5), FG);
-                        ui.painter().text(pos2(rect.left() + 170.0, rect.center().y), Align2::LEFT_CENTER, desc, mono(12.0), DIM);
+                        let y = rect.center().y;
+                        ui.painter().text(pos2(rect.left() + 8.0, y), Align2::LEFT_CENTER, name, mono(12.5), FG);
+                        // Key bind names run long ("Super + Shift + Space").
+                        // A bind's search tags (after " · ") sit at the row's
+                        // right end, fainter, when they fit beside the rest.
+                        let (desc, tags) = if matches!(r, ShelfRow::Bind(..)) { split_tags(desc) } else { (desc.as_str(), "") };
+                        let d = ui.painter().text(pos2(rect.left() + 200.0, y), Align2::LEFT_CENTER, desc, mono(12.0), DIM);
+                        if !tags.is_empty() {
+                            let g = ui.painter().layout_no_wrap(tags.to_string(), mono(11.0), DIM.gamma_multiply(0.7));
+                            let left = rect.right() - 8.0 - g.size().x;
+                            if left > d.right() + 16.0 {
+                                ui.painter().galley(pos2(left, y - g.size().y / 2.0), g, DIM);
+                            }
+                        }
                         if resp.clicked() {
                             activate = Some(i);
                         }

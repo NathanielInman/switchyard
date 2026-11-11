@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use yard_core::manifest::Confirm;
 use yard_core::model::*;
 use yard_core::protocol::{AckPhase, Event, OpenWhat, Reply, Request};
-use yard_core::search::{rank, ranked, score};
+use yard_core::search::{floor, rank, ranked, score, shelf_hay, split_tags};
 use yard_core::size::human;
 
 pub enum Msg {
@@ -972,14 +972,11 @@ impl Board {
         let Some(s) = snap.as_ref() else { return vec![] };
         let q = self.search.text().to_string();
         if !q.is_empty() {
-            let mut scored: Vec<(i64, &TaskView)> = s
-                .tasks
-                .iter()
-                .filter_map(|t| {
-                    let hay = format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description);
-                    score(&hay, &q).map(|sc| (sc, t))
-                })
-                .collect();
+            let hays: Vec<(String, &TaskView)> =
+                s.tasks.iter().map(|t| (format!("{} {} {} {}", t.label, t.id, t.tags.join(" "), t.description), t)).collect();
+            let min = floor(hays.iter().map(|h| &h.0), &q);
+            let mut scored: Vec<(i64, &TaskView)> =
+                hays.iter().filter_map(|(hay, t)| score(hay, &q).filter(|sc| *sc >= min).map(|sc| (sc, *t))).collect();
             scored.sort_by(|a, b| {
                 b.0.cmp(&a.0)
                     .then(b.1.frecency.partial_cmp(&a.1.frecency).unwrap_or(std::cmp::Ordering::Equal))
@@ -1219,58 +1216,71 @@ impl Board {
             row.set_activatable(false);
             list.append(&row);
         };
-        let item = |list: &gtk::ListBox, name: &str, desc: &str| {
+        // Key bind names run long ("Super + Shift + Space"), hence 22 chars.
+        // A bind's search tags (after " · ") sit at the row's right end,
+        // fainter than what the bind does.
+        let item = |list: &gtk::ListBox, name: &str, desc: &str, tags: &str| {
             let b = gtk::Box::new(gtk::Orientation::Horizontal, 12);
             let n = label(name, "name");
-            n.set_width_chars(16);
+            n.set_width_chars(22);
             n.set_ellipsize(gtk::pango::EllipsizeMode::End);
             let d = label(desc, "dim");
             d.set_ellipsize(gtk::pango::EllipsizeMode::End);
             d.set_hexpand(true);
             b.append(&n);
             b.append(&d);
+            if !tags.is_empty() {
+                let t = label(tags, "tags");
+                t.set_xalign(1.0);
+                t.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                t.set_max_width_chars(26);
+                b.append(&t);
+            }
             let row = gtk::ListBoxRow::new();
             row.set_child(Some(&b));
             list.append(&row);
         };
         let mut headers = 0;
-        if let Some(s) = &snap {
-            let shelved: Vec<&TaskView> = s.tasks.iter().filter(|t| t.shelf || t.stale).collect();
-            let tasks = rank(&shelved, &q, |t| format!("{} {}", t.label, t.description));
-            if !tasks.is_empty() {
-                section(&self.shelf_list, "TASKS");
-                rows.push(ShelfRow::Bind);
-                headers += 1;
-                for t in tasks {
-                    item(&self.shelf_list, &t.label, &crate::tile::status_line(t, now));
-                    rows.push(ShelfRow::Task(t.id.clone()));
-                }
+        let shelf = self.shelf.borrow().clone();
+        let shelved: Vec<&TaskView> = snap.iter().flat_map(|s| &s.tasks).filter(|t| t.shelf || t.stale).collect();
+        let task_hay = |t: &&TaskView| format!("{} {}", t.label, t.description);
+        // One floor for every section, so an exact hit in one hides the
+        // scattered matches in all of them.
+        let min = floor(shelved.iter().map(task_hay).chain(shelf.iter().flat_map(|d| d.tools.iter().chain(&d.binds)).map(shelf_hay)), &q);
+        let tasks = rank(&shelved, &q, min, task_hay);
+        if !tasks.is_empty() {
+            section(&self.shelf_list, "TASKS");
+            rows.push(ShelfRow::Bind);
+            headers += 1;
+            for t in tasks {
+                item(&self.shelf_list, &t.label, &crate::tile::status_line(t, now), "");
+                rows.push(ShelfRow::Task(t.id.clone()));
             }
         }
-        let shelf = self.shelf.borrow().clone();
         match &shelf {
             None => {
                 section(&self.shelf_list, "loading tools…");
                 rows.push(ShelfRow::Bind);
             }
             Some(d) => {
-                let tools = ranked(&d.tools, &q);
+                let tools = ranked(&d.tools, &q, min);
                 if !tools.is_empty() {
                     section(&self.shelf_list, "TOOLS");
                     rows.push(ShelfRow::Bind);
                     headers += 1;
                     for t in tools {
-                        item(&self.shelf_list, &t.name, &t.desc);
+                        item(&self.shelf_list, &t.name, &t.desc, "");
                         rows.push(ShelfRow::Tool(t.name.clone()));
                     }
                 }
-                let binds = ranked(&d.binds, &q);
+                let binds = ranked(&d.binds, &q, min);
                 if !binds.is_empty() {
                     section(&self.shelf_list, "KEY BINDS");
                     rows.push(ShelfRow::Bind);
                     headers += 1;
                     for t in binds {
-                        item(&self.shelf_list, &t.name, &t.desc);
+                        let (what, tags) = split_tags(&t.desc);
+                        item(&self.shelf_list, &t.name, what, tags);
                         rows.push(ShelfRow::Bind);
                     }
                 }

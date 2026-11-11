@@ -30,16 +30,37 @@ pub fn score(hay: &str, needle: &str) -> Option<i64> {
     Some(run + fuzzy)
 }
 
-/// Shelf items matching `q` on their name and description, best first.
-/// Ties keep their order, so an empty query lists everything as given.
-pub fn ranked<'a>(items: &'a [ShelfItem], q: &str) -> Vec<&'a ShelfItem> {
-    rank(items, q, |t| format!("{} {}", t.name, t.desc))
+/// Scores from here up hold the query as one run of text.
+pub const RUN: i64 = 1000;
+
+/// The least score worth listing for `q` across a whole list. When any
+/// entry holds `q` as one run of text, a match that only scatters its
+/// letters is noise: "clip" should list the clipboard bind, not every row
+/// with a c, l, i and p in order. Then the floor is [`RUN`]; when nothing
+/// holds it, it's 0 and every scattered match counts.
+pub fn floor<S: AsRef<str>>(hays: impl IntoIterator<Item = S>, q: &str) -> i64 {
+    if hays.into_iter().any(|h| score(h.as_ref(), q).is_some_and(|s| s >= RUN)) {
+        RUN
+    } else {
+        0
+    }
 }
 
-/// `items` matching `q` on the text `hay` gives for each, best first. The
-/// sort is stable, so ties keep their order.
-pub fn rank<'a, T>(items: &'a [T], q: &str, hay: impl Fn(&T) -> String) -> Vec<&'a T> {
-    let mut hits: Vec<(i64, &T)> = items.iter().filter_map(|t| Some((score(&hay(t), q)?, t))).collect();
+/// The text a Shelf item is searched by: its name and description.
+pub fn shelf_hay(t: &ShelfItem) -> String {
+    format!("{} {}", t.name, t.desc)
+}
+
+/// Shelf items matching `q` with at least score `min`, best first.
+pub fn ranked<'a>(items: &'a [ShelfItem], q: &str, min: i64) -> Vec<&'a ShelfItem> {
+    rank(items, q, min, shelf_hay)
+}
+
+/// `items` matching `q` with at least score `min` on the text `hay` gives
+/// for each, best first. The sort is stable, so ties keep their order and
+/// an empty query lists everything as given.
+pub fn rank<'a, T>(items: &'a [T], q: &str, min: i64, hay: impl Fn(&T) -> String) -> Vec<&'a T> {
+    let mut hits: Vec<(i64, &T)> = items.iter().filter_map(|t| Some((score(&hay(t), q)?, t))).filter(|h| h.0 >= min).collect();
     hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     hits.into_iter().map(|(_, t)| t).collect()
 }
@@ -129,14 +150,30 @@ mod tests {
             item("Super + Alt + V", "Clipboard history · paste copy"),
             item("Super + Q", "Close window · quit"),
         ];
-        assert_eq!(names(&ranked(&binds, "paste")), ["Super + Alt + V", "Super + 1"]);
-        assert_eq!(names(&ranked(&binds, "")), ["Super + 1", "Super + Alt + V", "Super + Q"]);
+        assert_eq!(names(&ranked(&binds, "paste", 0)), ["Super + Alt + V", "Super + 1"]);
+        assert_eq!(names(&ranked(&binds, "", 0)), ["Super + 1", "Super + Alt + V", "Super + Q"]);
+    }
+
+    #[test]
+    fn a_run_anywhere_drops_the_scatter() {
+        let binds =
+            vec![item("Super + Ctrl + L", "Shift column right · reorder tape"), item("Super + Alt + V", "Clipboard history · paste copy")];
+        let tools = vec![item("scc", "count lines of code in a repo per language")];
+        let all = || binds.iter().chain(&tools).map(shelf_hay);
+        let min = floor(all(), "clip");
+        assert_eq!(min, RUN);
+        assert_eq!(names(&ranked(&binds, "clip", min)), ["Super + Alt + V"]);
+        assert!(ranked(&tools, "clip", min).is_empty());
+        assert_eq!(floor(all(), "ctrl"), RUN);
+        // Nothing holds "cclr" as a run, so scattered matches still count.
+        assert_eq!(floor(all(), "cclr"), 0);
+        assert_eq!(floor(all(), ""), 0);
     }
 
     #[test]
     fn rank_keeps_ties_in_order() {
         let words = ["alpha one", "alpha two", "beta"];
-        assert_eq!(rank(&words, "alpha", |w| w.to_string()), [&"alpha one", &"alpha two"]);
+        assert_eq!(rank(&words, "alpha", 0, |w| w.to_string()), [&"alpha one", &"alpha two"]);
     }
 
     #[test]

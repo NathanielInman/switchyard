@@ -218,6 +218,20 @@ hl.bind("SUPER + Y", hl.dsp.exec_cmd("~/.local/bin/yard toggle --center"))
 
 or the classic syntax: `bind = SUPER, Y, exec, ~/.local/bin/yard toggle --center`.
 
+The Shelf lists your Hyprland binds by their descriptions, and its filter
+searches them. Words after a ` · ` are search tags, shown dimmer, so a bind
+you've forgotten turns up under what you'd type for it:
+
+```lua
+hl.bind("SUPER + ALT + V", hl.dsp.exec_cmd("walker --provider clipboard"),
+  { description = "Clipboard history · paste copy yank" })
+```
+
+(`bindd = SUPER ALT, V, Clipboard history · paste copy yank, exec, ...` in
+the classic syntax.) Under the Lua config Hyprland can't say what a bind
+without a description runs, so the Shelf shows only its dispatcher, such as
+`exec_cmd`.
+
 **3. Tell it where your code is.** `~/.config/switchyard/config.toml`
 (`%APPDATA%\switchyard\config.toml` on Windows):
 
