@@ -1669,9 +1669,13 @@ impl Daemon {
     }
 
     fn shelf_data(&mut self) -> ShelfData {
+        // Binds are one socket round trip, so they are read on every request
+        // and a compositor config reload shows on the next Shelf open. Tools
+        // can mean querying every installed package, so they stay cached.
+        let binds = self.shelf_binds();
         if let Some((d, at)) = &self.shelf {
             if at.elapsed() < Duration::from_secs(600) {
-                return d.clone();
+                return ShelfData { tools: d.tools.clone(), binds };
             }
         }
         let mut tools: Vec<ShelfItem> = self
@@ -1688,17 +1692,19 @@ impl Daemon {
                 }
             }
         }
-        let binds = if self.cfg.shelf.binds {
-            yard_core::hypr::binds()
-                .into_iter()
-                .map(|(k, d)| ShelfItem { name: k, desc: d, cmd: None })
-                .collect()
-        } else {
-            vec![]
-        };
         let d = ShelfData { tools, binds };
         self.shelf = Some((d.clone(), Instant::now()));
         d
+    }
+
+    fn shelf_binds(&self) -> Vec<ShelfItem> {
+        if !self.cfg.shelf.binds {
+            return vec![];
+        }
+        yard_core::hypr::binds()
+            .into_iter()
+            .map(|(k, d)| ShelfItem { name: k, desc: d, cmd: None })
+            .collect()
     }
 
     fn open(&mut self, what: OpenWhat, id: Option<String>, file: Option<String>, line: Option<u32>, tool: Option<String>) -> Reply {

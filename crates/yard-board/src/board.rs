@@ -905,16 +905,16 @@ impl Board {
             self.open_history();
         } else if i > n {
             self.set_mode(Mode::Shelf);
-            if self.shelf.borrow().is_none() {
-                let tx = self.tx.clone();
-                std::thread::spawn(move || {
-                    if let Ok(r) = yard_core::protocol::request(&Request::Shelf) {
-                        if let Some(d) = r.shelf {
-                            let _ = tx.send_blocking(Msg::Shelf(d));
-                        }
+            // Refetch on every open so edited key binds show; the last copy
+            // renders until the reply lands.
+            let tx = self.tx.clone();
+            std::thread::spawn(move || {
+                if let Ok(r) = yard_core::protocol::request(&Request::Shelf) {
+                    if let Some(d) = r.shelf {
+                        let _ = tx.send_blocking(Msg::Shelf(d));
                     }
-                });
-            }
+                }
+            });
             self.render_shelf();
         } else {
             self.tab.set(i);

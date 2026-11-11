@@ -476,18 +476,18 @@ impl App {
         } else if i > n {
             self.mode = Mode::Shelf;
             self.shelf_sel = 0;
-            if self.shelf.is_none() {
-                let tx = self.tx.clone();
-                let ctx = self.ctx.clone();
-                std::thread::spawn(move || {
-                    if let Ok(r) = yard_core::protocol::request(&Request::Shelf) {
-                        if let Some(d) = r.shelf {
-                            let _ = tx.send(Msg::Shelf(d));
-                            ctx.request_repaint();
-                        }
+            // Refetch on every open so edited key binds show; the last copy
+            // draws until the reply lands.
+            let tx = self.tx.clone();
+            let ctx = self.ctx.clone();
+            std::thread::spawn(move || {
+                if let Ok(r) = yard_core::protocol::request(&Request::Shelf) {
+                    if let Some(d) = r.shelf {
+                        let _ = tx.send(Msg::Shelf(d));
+                        ctx.request_repaint();
                     }
-                });
-            }
+                }
+            });
         } else {
             self.tab = i;
             self.mode = Mode::Grid;
