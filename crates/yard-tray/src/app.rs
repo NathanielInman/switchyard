@@ -175,6 +175,24 @@ fn fuzzy(hay: &str, needle: &str) -> Option<i64> {
     Some(score)
 }
 
+/// Shelf items matching `q`, best first. `fuzzy` takes the first letters it
+/// finds, so on its own "paste" scores a bind that spells it across
+/// "workspace · switch desktop" about the same as one tagged "paste". A
+/// substring hit in the name or description ranks above every scattered one.
+fn ranked<'a>(items: &'a [ShelfItem], q: &str) -> Vec<&'a ShelfItem> {
+    let ql = q.to_lowercase();
+    let mut hits: Vec<(i64, &ShelfItem)> = items
+        .iter()
+        .filter_map(|t| {
+            let hay = format!("{} {}", t.name, t.desc);
+            let s = fuzzy(&hay, q)?;
+            Some((if !ql.is_empty() && hay.to_lowercase().contains(&ql) { s + 1000 } else { s }, t))
+        })
+        .collect();
+    hits.sort_by(|a, b| b.0.cmp(&a.0));
+    hits.into_iter().map(|(_, t)| t).collect()
+}
+
 fn letter(k: Key) -> Option<char> {
     let name = k.name();
     (name.len() == 1).then(|| name.chars().next().unwrap().to_ascii_lowercase()).filter(|c| c.is_ascii_alphabetic())
@@ -1328,12 +1346,12 @@ impl App {
         match &self.shelf {
             None => rows.push(ShelfRow::Section("loading tools…".into())),
             Some(d) => {
-                let tools: Vec<&ShelfItem> = d.tools.iter().filter(|t| fuzzy(&format!("{} {}", t.name, t.desc), &q).is_some()).collect();
+                let tools = ranked(&d.tools, &q);
                 if !tools.is_empty() {
                     rows.push(ShelfRow::Section("TOOLS".into()));
                     rows.extend(tools.into_iter().map(|t| ShelfRow::Tool(t.name.clone(), t.desc.clone())));
                 }
-                let binds: Vec<&ShelfItem> = d.binds.iter().filter(|t| fuzzy(&format!("{} {}", t.name, t.desc), &q).is_some()).collect();
+                let binds = ranked(&d.binds, &q);
                 if !binds.is_empty() {
                     rows.push(ShelfRow::Section("KEY BINDS".into()));
                     rows.extend(binds.into_iter().map(|t| ShelfRow::Bind(t.name.clone(), t.desc.clone())));
