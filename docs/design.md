@@ -23,6 +23,9 @@ tour; this is the spec.
    priority.
 5. **Motion that helps.** The board grows out of the clicked icon, tiles
    arrive in order, and state changes fade instead of jumping.
+6. **Know where each project stands.** The optional Inspection tab shows
+   what every repo in a folder needs from you (unpushed work, merged
+   worktrees, rule breaks) and puts the fix one key away.
 
 ## Non-goals
 
@@ -42,6 +45,9 @@ tour; this is the spec.
 | Main line | The single slot heavy builds take turns on, guarded by a free-memory check. |
 | Board | The panel window. |
 | Shelf | A dense list for tasks you rarely run, CLI tools and key binds. |
+| Inspection | The optional tab with one row per repo under `inspection.roots`. |
+| Finding | One thing a repo needs from you, from one rule, at one severity: `act`, `tidy` or `info`. |
+| Family | A group of rules that read the same source: git, house rules, releases, disk, custom checks, forge. |
 
 ## Architecture
 
@@ -275,6 +281,143 @@ runs shaded as "usual". The card for a run shows where its time went, peak
 memory, queue time, the commit (or the last green commit for a failure), and
 replays it with the same params or opens that run's own log.
 
+## Inspection
+
+An optional tab with one row per repo under the folders in
+`inspection.roots`. Each row has a lamp and one line: the single thing that
+most needs you ("2 worktrees merged and clean", "github-actions[bot] wrote 14
+commits this month"). A click or Enter opens the row on its details and the
+actions that apply. With no `[inspection]` table the tab, the scanning and the
+state file do not exist.
+
+The git signals start from the six commands in "Git commands before reading
+code" (piechowski.io): churn hotspots, bug clusters, bus factor, recent
+contributors, monthly rhythm and firefighting. Each is tuned for repos you
+own alone or join partway through, and paired with the state of the working
+tree, which those commands do not look at.
+
+### Repos and tags
+
+- **Discovery.** Every directory matched by `roots` (a trailing `/*` means
+  each child) that holds a `.git` directory is a repo. A directory whose
+  `.git` is a file (`gitdir: ...`) is a worktree and folds into the row of
+  the repo it belongs to. Nested repos and submodules are not rows.
+- **Tags.** Each repo gets tags from its `origin` URL: the owner (the first
+  path segment, lowercased: `digitalturbine`, `twinspear-games`,
+  `nathanielinman`) and the host's short name (`github`, `gitlab`, or the
+  host itself). `inspection.tags` renames tags. A repo whose owner is listed in
+  `mine` also gets the tag `mine`. A repo without `origin` gets `local`.
+- **Filter.** `/` filters by name; a `#tag` term keeps only repos with that
+  tag. A row of tag chips above the list does the same with a click. The
+  CLI takes `--tag`.
+- **Groups.** Rows group by owner (`group_by = "owner"`), by host, or not at
+  all. Within a group: act, then tidy, then clear, then quiet, then by name.
+
+### Findings and severity
+
+Every rule yields findings at a default severity that
+`[inspection.severity]` overrides by rule name. A row's lamp is its worst
+finding. `info` never lights a row.
+
+| Rule | Family | Default | Fires when |
+|---|---|---|---|
+| `unpushed` | git | act | a local branch has commits on no remote for more than 3 days |
+| `stale_dirty` | git | act | the oldest uncommitted change (by file mtime) is more than 7 days old |
+| `dirty` | git | info | anything is uncommitted |
+| `foreign_author` | git | tidy | on a `mine` repo, a commit in the last 30 days is authored by anyone not in `me` |
+| `merged_worktree` | git | tidy | a linked worktree's branch is an ancestor of the default branch and the worktree is clean |
+| `merged_branches` | git | tidy | local branches (not checked out anywhere) are ancestors of the default branch |
+| `behind` | git | tidy | the current branch is behind its upstream as of the last fetch |
+| `old_stash` | git | tidy | a stash is more than 14 days old |
+| `big_output` | disk | tidy | `target/`, `node_modules/` or `.godot/` exceeds `big_output` in a repo with no commits for 30 days |
+| `quiet` | git | info | no commits for `quiet_after`; the row dims and sinks |
+
+Lamps: `act` uses the stop color, `tidy` caution, a repo with no findings
+above `info` is clear (go), and a quiet repo is idle. Inspection lamps never
+change the bar icon or the board's aggregate phase; they move on a scale of
+days, and the bar is for tasks that need you now. The tab label carries the
+act count.
+
+### Details
+
+A row's card has these sections, each left out when it has nothing to say:
+
+- **Now.** Branch, uncommitted count, ahead and behind, stashes, each
+  worktree with its branch and state, build output size.
+- **Hotspots.** The files changed most in the window (`window`, default one
+  year) next to the number of fix commits that touched them. Files high on
+  both are marked. Paths matching `ignore` are left out. A commit counts as a
+  fix when its subject starts with `fix` as a conventional commit type; in a
+  repo where under half of the window's subjects are conventional commits,
+  the match falls back to the words fix, bug or broken.
+- **Rhythm.** Commits per month for the last 14 months, as a sparkline.
+- **People.** Authors by commit count through `.mailmap` (`%aN`), with every
+  identity in `me` folded into one. Shown only when the repo has two or more
+  human authors; names ending in `[bot]` and known release bots are listed
+  apart. The card flags a top author with no commits in six months, and notes
+  that squash merges count mergers.
+- **Contributors.** On `mine` repos, every identity outside `me`, with its
+  count and latest date. This is where older `foreign_author` commits stay
+  visible after the 30 days.
+- **Firefighting.** Commits in the window whose subject mentions revert,
+  hotfix, emergency or rollback, as a count that expands to the list.
+- **Actions.** The actions the findings allow, each with its key.
+
+### Actions
+
+| Action | Offered when | Does | Confirm |
+|---|---|---|---|
+| Remove worktree | `merged_worktree` | `git worktree remove <path>` | hold |
+| Delete merged branches | `merged_branches` | lists them, then `git branch -d` each (never `-D`) | hold |
+| Terminal here | always | the configured `terminal` in the repo or worktree | none |
+| Open in editor | always | the configured `editor` on the repo | none |
+
+The daemon checks the condition again just before it acts (still merged,
+still clean), and refuses with the reason if it no longer holds. Every action
+is a `git` or file command run in the repo; none rewrites history, force
+pushes or touches a remote.
+
+### Cost and caching
+
+- **Status.** `git status --porcelain=v2 --branch` per repo and worktree on
+  the existing git watch, at most once a minute per repo, and on board open.
+  102 repos take about 0.2 s.
+- **History.** One `git log --no-merges --name-only` pass per repo yields all
+  the git signals together. Results are kept per repo in
+  `~/.local/state/switchyard/inspection.json` with the HEAD they were computed
+  at, as per-month counts so the window can roll forward. When HEAD moves, only
+  `<cached>..HEAD` is read; when the cached HEAD is no longer an ancestor
+  (rebase, reset), the repo is read again in full. A full first pass over 102
+  repos takes about 6.5 s.
+- **Priority.** History passes run one at a time on a worker thread, as child
+  processes at nice 19 (background QoS on macOS, idle priority on Windows).
+  The event loop never waits on git.
+
+### Families to come
+
+The name leaves room for more than git. Later families add findings to the
+same rows, lamps and actions:
+
+- **House rules** (v2). Patterns checked against the last 30 days of commit
+  messages on `mine` repos, each with a severity: a co-author trailer, an
+  attribution footer, an em or en dash.
+- **Releases** (v2). Commits since the last `v*` tag and how many are `feat`
+  or `fix`, as `info` ("25 since v0.2.0, 18 feat or fix").
+- **Custom checks** (v2). `[[inspection.check]]` names a command, the tags it
+  runs on, an optional file that must exist, an interval, a `capture` regex
+  and a finding template. Checks run through the task runner at heavy-build
+  priority, one at a time, and never on board open.
+- **Forge** (v3). Pipeline status, open PRs and MRs, and squash-merge
+  detection through `gh` and `glab`, with tokens from the environment the
+  daemon passes through. Opt-in, since it is the only family that uses the
+  network.
+
+### Non-goals
+
+- No fetch, pull or push. "Behind" means behind the last fetch you ran.
+- No history rewrites. Old bot commits stay until you rewrite them yourself.
+- No code-quality grades or linting beyond what a custom check runs.
+
 ## Files and paths
 
 On Linux and macOS (XDG layout on both, since that is where developers keep
@@ -289,6 +432,7 @@ state, logs and run files in `%LOCALAPPDATA%\switchyard`.
 | `<repo>/.yard.toml` | A repo's own manifest, found through `scan`. |
 | `~/.local/state/switchyard/state.json` | History: last results, durations, parameter history, frecency, shelf choices. |
 | `~/.local/state/switchyard/logs/<task>.log` | Default log location. The previous run is kept as `<task>.log.1`. |
+| `~/.local/state/switchyard/inspection.json` | Inspection cache: per repo, the HEAD it was read at and per-month counts. Only with `[inspection]`. |
 | `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket (macOS: under `$TMPDIR`; Windows: `yard.port`, a localhost port and token). |
 | `$XDG_RUNTIME_DIR/switchyard/runs/` | Run specs, exit files, scratch directories. |
 | `$XDG_RUNTIME_DIR/switchyard/tray.lock` | Held by the running `yard-tray`, so a second launch opens its board instead. |
@@ -346,11 +490,28 @@ desc = "count lines of code per language"
 
 [bar]
 icon = "●"            # text shown by `yard bar`; the CSS class carries state
+
+# Optional. Without this table there is no Inspection tab and no scanning.
+[inspection]
+roots = ["~/code/*"]  # each child holding a .git is a repo; worktrees fold in
+mine = ["octocat"]    # remote owners that are yours: tagged `mine`, house rules apply
+me = ["Mona Lisa", "octocat"]   # author names that are you (after .mailmap)
+group_by = "owner"    # "owner", "host" or "none"
+window = "1y"         # history read for hotspots, fixes and firefighting
+ignore = ["*.lock", "CHANGELOG.md", "package.json", "*.d.ts"]  # left out of hotspots
+quiet_after = "90d"   # no commits this long: the row dims and sinks
+big_output = "5G"     # build output size that counts as a finding
+
+[inspection.tags]     # rename tags derived from remotes
+"twinspear-games" = "twinspear"
+
+[inspection.severity] # "act", "tidy", "info" or "off" per rule
+foreign_author = "act"
 ```
 
 When no `[[tab]]` is configured there is one tab, "All". History and Shelf
-follow the configured tabs, Shelf last; a running Roundhouse adds a link
-after them (see [Siblings](#siblings)).
+follow the configured tabs, then Inspection when configured, Shelf last; a
+running Roundhouse adds a link after them (see [Siblings](#siblings)).
 
 ## Manifest reference
 
@@ -474,6 +635,22 @@ Events on a subscription are `{"event":"snapshot",...}` (full state),
 `{"event":"toggle","anchor":...}`. The bar subscription receives only
 `{"event":"bar",...}` lines, already in waybar's JSON format.
 
+With `[inspection]` configured:
+
+```json
+{"cmd":"inspection"}
+{"cmd":"inspect","dir":"/home/me/code/storefront"}
+{"cmd":"inspect_act","dir":"/home/me/code/storefront","action":"worktree_remove","target":"/home/me/code/storefront-fix"}
+```
+
+`inspection` answers with the rows (dir, name, tags, lamp, headline, the
+findings and the worktrees). `inspect` answers with one repo's details.
+`inspect_act` answers once the action finishes, with its outcome or the
+reason it was refused. The snapshot carries `inspection: {"act":n,"tidy":n}`
+for the tab label, and a board subscription receives `{"event":"inspection"}`
+when any row changes. The CLI has `yard inspect [--tag <tag>] [--json]` and
+`yard inspect <dir>`.
+
 ## Keyboard
 
 | Where | Key | Action |
@@ -489,6 +666,10 @@ Events on a subscription are `{"event":"snapshot",...}` (full state),
 | Log | `r` | run again |
 | Log | `f` | follow output |
 | Log | `a` | acknowledge (clear the red lamp) |
+| Inspection | arrows, Enter | move, open the selected row's details |
+| Inspection | `/`, `#` | filter by name, by tag |
+| Inspection | action key | the action shown on the card (hold it for guarded actions) |
+| Inspection | `t`, `e` | terminal or editor in the selected repo |
 | Any | Esc | back, then close |
 
 ## Security notes
@@ -499,3 +680,6 @@ Events on a subscription are `{"event":"snapshot",...}` (full state),
 - Manifests run commands. Switchyard only reads manifests from paths you list
   in `scan`, `scripts` and `tasks.d`; a cloned repo's `.yard.toml` does
   nothing until its directory matches a `scan` entry.
+- Inspection only reads repos. It runs `git` with `-c core.fsmonitor=false`
+  and without hooks, so a cloned repo's config cannot make a scan run code.
+  Custom checks (v2) come only from the global config, never from a repo.
