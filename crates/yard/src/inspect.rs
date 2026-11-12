@@ -48,7 +48,10 @@ pub fn lower_priority() {
 /// repo. A worktree whose repo is not under `roots` is a row of its own.
 pub fn repo_dirs(cfg: &InspectionConfig) -> Vec<PathBuf> {
     let found = cfg.candidate_dirs();
-    let set: HashSet<PathBuf> = found.iter().cloned().collect();
+    // Git records a worktree's repo by its real path (macOS /private/var,
+    // Windows long names), so compare real paths on both sides.
+    let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let set: HashSet<PathBuf> = found.iter().map(|p| real(p)).collect();
     found
         .into_iter()
         .filter(|d| {
@@ -62,7 +65,7 @@ pub fn repo_dirs(cfg: &InspectionConfig) -> Vec<PathBuf> {
                 let p = if p.is_relative() { d.join(p) } else { p };
                 p.parent()?.parent()?.parent().map(Path::to_path_buf)
             });
-            !main.is_some_and(|m| set.contains(&m) || set.contains(&m.canonicalize().unwrap_or(m.clone())))
+            !main.is_some_and(|m| set.contains(&real(&m)))
         })
         .collect()
 }
