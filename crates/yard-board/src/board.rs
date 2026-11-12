@@ -24,6 +24,7 @@ pub enum Msg {
     Reply(Reply),
     Shelf(ShelfData),
     History(yard_core::protocol::HistoryData),
+    Inspection(yard_core::inspect::InspectionData),
 }
 
 thread_local! {
@@ -46,6 +47,17 @@ enum Mode {
     Shelf,
     History,
     Strip(String),
+    Inspection,
+}
+
+/// What each position in the tab row opens.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum TabKind {
+    Grid(usize),
+    History,
+    Inspection,
+    Shelf,
+    Roundhouse,
 }
 
 #[derive(Clone)]
@@ -116,6 +128,8 @@ pub struct Board {
     shelf_list: gtk::ListBox,
     history: Rc<crate::historyview::HistoryView>,
     history_rev: Cell<u64>,
+    inspect: Rc<crate::inspectview::InspectView>,
+    inspect_rev: Cell<u64>,
     recent: gtk::Box,
     footer: gtk::Label,
     menu_holder: gtk::Box,
@@ -255,6 +269,8 @@ impl Board {
         let history = crate::historyview::HistoryView::new();
         stack.add_named(&history.feed_root, Some("history"));
         stack.add_named(&history.strip_root, Some("strip"));
+        let inspect = crate::inspectview::InspectView::new();
+        stack.add_named(&inspect.root, Some("inspection"));
 
         let recent = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         recent.add_css_class("recent");
@@ -307,6 +323,8 @@ impl Board {
             shelf_list,
             history,
             history_rev: Cell::new(u64::MAX),
+            inspect,
+            inspect_rev: Cell::new(u64::MAX),
             recent,
             footer,
             menu_holder,
@@ -337,6 +355,12 @@ impl Board {
         b.history.connect_action(move |a| {
             if let Some(b) = w.upgrade() {
                 b.history_action(a);
+            }
+        });
+        let w = Rc::downgrade(&b);
+        b.inspect.connect_action(move |a| {
+            if let Some(b) = w.upgrade() {
+                b.inspect_action(a);
             }
         });
         b
@@ -392,6 +416,10 @@ impl Board {
                 if t.starts_with('/') {
                     e.set_text(t.trim_start_matches('/'));
                     e.set_position(-1);
+                    return;
+                }
+                if *b.mode.borrow() == Mode::Inspection {
+                    b.inspect.set_filter(&b.search.text());
                     return;
                 }
                 b.selected.set(if b.search.text().is_empty() { None } else { Some(0) });
@@ -462,6 +490,7 @@ impl Board {
                     let _ = task;
                 }
             }
+            Msg::Inspection(d) => self.inspect.set_data(d),
             Msg::Shelf(d) => {
                 *self.shelf.borrow_mut() = Some(d);
                 if *self.mode.borrow() == Mode::Shelf {
@@ -516,7 +545,17 @@ impl Board {
             self.tiles.borrow_mut().retain(|k, _| ids.contains(&k.as_str()));
         }
         let rev = s.history_rev;
+        let irev = s.inspection.as_ref().map(|i| i.rev);
+        if s.inspection.is_none() && *self.mode.borrow() == Mode::Inspection {
+            self.set_mode(Mode::Grid);
+        }
         *self.snap.borrow_mut() = Some(s);
+        if let Some(irev) = irev {
+            if irev != self.inspect_rev.get() && *self.mode.borrow() == Mode::Inspection {
+                self.inspect_rev.set(irev);
+                self.fetch_inspection();
+            }
+        }
         if rev != self.history_rev.get() && matches!(*self.mode.borrow(), Mode::History | Mode::Strip(_)) {
             self.history_rev.set(rev);
             self.fetch_history();
@@ -544,6 +583,45 @@ impl Board {
         self.fetch_history();
     }
 
+    fn fetch_inspection(&self) {
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            if let Ok(r) = yard_core::protocol::request(&Request::Inspection) {
+                if let Some(d) = r.inspection {
+                    let _ = tx.send_blocking(Msg::Inspection(*d));
+                }
+            }
+        });
+    }
+
+    fn open_inspection(self: &Rc<Self>) {
+        self.set_mode(Mode::Inspection);
+        self.inspect.reset_scroll();
+        self.inspect.set_filter(&self.search.text());
+        if let Some(i) = self.snap.borrow().as_ref().and_then(|s| s.inspection.as_ref()) {
+            self.inspect_rev.set(i.rev);
+        }
+        self.fetch_inspection();
+    }
+
+    fn inspect_action(self: &Rc<Self>, a: crate::inspectview::Action) {
+        use crate::inspectview::Action;
+        match a {
+            Action::Act(dir, action) => {
+                self.toast("Working…", false);
+                self.send(Request::InspectAct { dir, action });
+            }
+            Action::Terminal(dir) => {
+                self.send(Request::Open { what: OpenWhat::Terminal, id: None, file: None, line: None, tool: None, dir: Some(dir) });
+                self.hide();
+            }
+            Action::Editor(dir) => {
+                self.send(Request::Open { what: OpenWhat::Editor, id: None, file: None, line: None, tool: None, dir: Some(dir) });
+                self.hide();
+            }
+        }
+    }
+
     fn open_strip(self: &Rc<Self>, task: &str) {
         self.history.open_strip(task);
         self.set_mode(Mode::Strip(task.to_string()));
@@ -559,7 +637,14 @@ impl Board {
                 self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
             }
             Action::OpenLog(r) => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None, dir: None });
+                self.send(Request::Open {
+                    what: OpenWhat::Log,
+                    id: Some(r.task.clone()),
+                    file: r.log.clone(),
+                    line: None,
+                    tool: None,
+                    dir: None,
+                });
                 self.hide();
             }
             Action::CopyError(r) => {
@@ -679,6 +764,7 @@ impl Board {
                 }
             }
         }
+        self.inspect.tick();
         // Hold-to-confirm progress.
         let fire = {
             let hold = self.hold.borrow();
@@ -760,7 +846,7 @@ impl Board {
         match self.mode.borrow().clone() {
             Mode::Grid => self.render_grid(animate),
             Mode::Shelf => self.render_shelf(),
-            Mode::History | Mode::Strip(_) => {}
+            Mode::History | Mode::Strip(_) | Mode::Inspection => {}
             Mode::Log(id) => {
                 if let Some(v) = self.task(&id) {
                     self.log.update_head(&v);
@@ -773,10 +859,6 @@ impl Board {
         if let Some(m) = self.menu.borrow().as_ref() {
             let _ = m;
         }
-    }
-
-    fn tabs(&self) -> Vec<yard_core::config::TabConfig> {
-        self.snap.borrow().as_ref().map(|s| s.tabs.clone()).unwrap_or_default()
     }
 
     fn in_tab(t: &TaskView, tab: &yard_core::config::TabConfig) -> bool {
@@ -794,12 +876,14 @@ impl Board {
         let shelf_count =
             s.tasks.iter().filter(|t| t.shelf || t.stale).count() + self.shelf.borrow().as_ref().map(|d| d.tools.len()).unwrap_or(0);
         entries.push(("History".into(), 0));
+        if let Some(i) = &s.inspection {
+            entries.push(("Inspection".into(), i.act));
+        }
         entries.push(("Shelf".into(), shelf_count));
-        let active = match &*self.mode.borrow() {
-            Mode::Shelf => entries.len() - 1,
-            Mode::History | Mode::Strip(_) => entries.len() - 2,
-            _ => self.tab.get(),
-        };
+        drop(snap);
+        let active = self.tab_kinds().iter().position(|k| *k == self.current_tab()).unwrap_or(0);
+        let snap = self.snap.borrow();
+        let Some(s) = snap.as_ref() else { return };
         for (i, (name, n)) in entries.into_iter().enumerate() {
             let b = gtk::Button::new();
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -860,23 +944,44 @@ impl Board {
         });
     }
 
-    /// Tabs by position: the configured tabs, History, Shelf, then the
-    /// Roundhouse link while Roundhouse runs.
+    /// Tabs by position: the configured tabs, History, Inspection when it is
+    /// configured, Shelf, then the Roundhouse link while Roundhouse runs.
+    fn tab_kinds(&self) -> Vec<TabKind> {
+        let snap = self.snap.borrow();
+        let Some(s) = snap.as_ref() else { return vec![] };
+        let mut v: Vec<TabKind> = (0..s.tabs.len()).map(TabKind::Grid).collect();
+        v.push(TabKind::History);
+        if s.inspection.is_some() {
+            v.push(TabKind::Inspection);
+        }
+        v.push(TabKind::Shelf);
+        if s.machine.is_some() {
+            v.push(TabKind::Roundhouse);
+        }
+        v
+    }
+
+    fn current_tab(&self) -> TabKind {
+        match &*self.mode.borrow() {
+            Mode::Shelf => TabKind::Shelf,
+            Mode::History | Mode::Strip(_) => TabKind::History,
+            Mode::Inspection => TabKind::Inspection,
+            _ => TabKind::Grid(self.tab.get()),
+        }
+    }
+
     fn select_tab(self: &Rc<Self>, i: usize) {
-        let n = self.tabs().len();
         self.close_menu();
-        if i == n + 2 {
-            if self.snap.borrow().as_ref().is_some_and(|s| s.machine.is_some()) {
-                self.open_roundhouse();
-            }
+        let Some(kind) = self.tab_kinds().get(i).copied() else { return };
+        if kind == TabKind::Roundhouse {
+            self.open_roundhouse();
             return;
         }
-        if i > n + 1 {
-            return;
-        }
-        if i == n {
+        if kind == TabKind::History {
             self.open_history();
-        } else if i > n {
+        } else if kind == TabKind::Inspection {
+            self.open_inspection();
+        } else if kind == TabKind::Shelf {
             self.set_mode(Mode::Shelf);
             // Refetch on every open so edited key binds show; the last copy
             // renders until the reply lands.
@@ -889,7 +994,7 @@ impl Board {
                 }
             });
             self.render_shelf();
-        } else {
+        } else if let TabKind::Grid(i) = kind {
             self.tab.set(i);
             self.set_mode(Mode::Grid);
             self.selected.set(None);
@@ -1162,6 +1267,7 @@ impl Board {
                 Mode::Log(_) => "",
                 Mode::Shelf => "↵ run   m man page   / filter   tab next   esc close",
                 Mode::History => "↑↓ move   ↵ expand   o open runs   tab next   esc close",
+                Mode::Inspection => "↑↓ move   ↵ open   w b hold to clear   t terminal   e editor   / filter   # tag   esc close",
                 Mode::Strip(_) => "←→ runs   r replay   l log   y copy error   esc back",
             }
         };
@@ -1194,6 +1300,7 @@ impl Board {
             Mode::Shelf => "shelf",
             Mode::History => "history",
             Mode::Strip(_) => "strip",
+            Mode::Inspection => "inspection",
         };
         *self.mode.borrow_mut() = m;
         self.stack.set_visible_child_name(page);
@@ -1750,6 +1857,7 @@ impl Board {
                 Mode::Shelf => "shelf".to_string(),
                 Mode::History => "history".to_string(),
                 Mode::Strip(id) => format!("strip {id}"),
+                Mode::Inspection => "inspection".to_string(),
             };
             eprintln!(
                 "key {:?} state {:?} mode {mode} menu {} search {} page {:?}",
@@ -1895,6 +2003,50 @@ impl Board {
             }
         }
 
+        if mode == Mode::Inspection {
+            if esc {
+                if self.search.text().is_empty() && !self.inspect.clear_tag() && !self.inspect.cancel_hold() {
+                    self.hide();
+                } else {
+                    self.search.set_text("");
+                }
+                return Stop;
+            }
+            match key {
+                gdk::Key::Down | gdk::Key::j => self.inspect.move_sel(1),
+                gdk::Key::Up | gdk::Key::k => self.inspect.move_sel(-1),
+                gdk::Key::Page_Down => self.inspect.move_sel(8),
+                gdk::Key::Page_Up => self.inspect.move_sel(-8),
+                gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space => self.inspect.toggle(),
+                gdk::Key::Tab | gdk::Key::ISO_Left_Tab | gdk::Key::slash => {}
+                _ => {
+                    match ch {
+                        Some('#') => {
+                            self.search.grab_focus();
+                            self.search.set_text("#");
+                            self.search.set_position(-1);
+                        }
+                        Some('t') | Some('e') => {
+                            if let Some(dir) = self.inspect.selected_dir() {
+                                use crate::inspectview::Action;
+                                self.inspect_action(if ch == Some('t') { Action::Terminal(dir) } else { Action::Editor(dir) });
+                            }
+                        }
+                        Some('r') => self.send(Request::InspectRefresh),
+                        Some(c) if c.is_ascii_digit() && c != '0' => self.select_tab(c as usize - '1' as usize),
+                        Some(c) => {
+                            self.inspect.key_down(c);
+                        }
+                        None => {}
+                    }
+                    return Stop;
+                }
+            }
+            if !matches!(key, gdk::Key::Tab | gdk::Key::ISO_Left_Tab | gdk::Key::slash) {
+                return Stop;
+            }
+        }
+
         if esc {
             if !self.search.text().is_empty() {
                 self.search.set_text("");
@@ -1905,12 +2057,9 @@ impl Board {
         }
         match key {
             gdk::Key::Tab | gdk::Key::ISO_Left_Tab => {
-                let n = self.tabs().len() + 2;
-                let cur = match mode {
-                    Mode::Shelf => n - 1,
-                    Mode::History | Mode::Strip(_) => n - 2,
-                    _ => self.tab.get(),
-                };
+                let kinds: Vec<TabKind> = self.tab_kinds().into_iter().filter(|k| *k != TabKind::Roundhouse).collect();
+                let n = kinds.len().max(1);
+                let cur = kinds.iter().position(|k| *k == self.current_tab()).unwrap_or(0);
                 let back = key == gdk::Key::ISO_Left_Tab || state.contains(gdk::ModifierType::SHIFT_MASK);
                 let next = if back { (cur + n - 1) % n } else { (cur + 1) % n };
                 self.select_tab(next);
@@ -1995,6 +2144,12 @@ impl Board {
 
     fn key_released(self: &Rc<Self>, key: gdk::Key) {
         let Some(c) = key.to_unicode().map(|c| c.to_ascii_lowercase()) else { return };
+        if *self.mode.borrow() == Mode::Inspection {
+            if self.inspect.key_up(c) {
+                self.toast("Released early. Nothing changed.", false);
+            }
+            return;
+        }
         if self.spent_key.get() == Some(c) {
             self.spent_key.set(None);
             return;

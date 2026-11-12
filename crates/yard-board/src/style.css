@@ -271,3 +271,21 @@ button.hist-btn, .actions button.frost {
   background: @yard_frost; color: #1b1d20; border: none; border-radius: 7px; padding: 2px 10px; min-height: 0; font-weight: bold; box-shadow: none;
 }
 button.hist-btn { background: transparent; color: @yard_fg; border: 1px solid @yard_border; font-weight: normal; }
+
+/* ---- inspection ---- */
+.insp-tags { margin: 0 2px; }
+.insp-tags flowboxchild, .hist-row flowboxchild { padding: 0; min-width: 0; min-height: 0; }
+button.insp-tag {
+  background: transparent; color: @yard_dim; border: 1px solid @yard_border; border-radius: 7px;
+  padding: 0 8px; min-height: 0; font-size: 11.5px; box-shadow: none;
+}
+button.insp-tag:hover { color: @yard_fg; }
+button.insp-tag.active { background: @yard_tile_hover; color: @yard_fg; border-color: @yard_accent; }
+.insp-sec { color: @yard_dim; font-size: 10px; letter-spacing: 1.5px; }
+.insp-fix { color: @yard_caution; }
+.insp-warn { color: @yard_caution; }
+.hist-stat .v.bad { color: @yard_stop; }
+.insp-act { border: 1px solid alpha(@yard_caution, 0.5); border-radius: 7px; padding: 2px 9px 3px 9px; color: @yard_caution; }
+.insp-act:hover { background: alpha(@yard_caution, 0.08); }
+progressbar.insp-hold trough { min-height: 2px; background: transparent; border: none; }
+progressbar.insp-hold progress { min-height: 2px; background: @yard_caution; border: none; border-radius: 1px; }

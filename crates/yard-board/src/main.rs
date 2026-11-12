@@ -16,6 +16,8 @@ mod board;
 #[cfg(target_os = "linux")]
 mod historyview;
 #[cfg(target_os = "linux")]
+mod inspectview;
+#[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
 mod logview;
