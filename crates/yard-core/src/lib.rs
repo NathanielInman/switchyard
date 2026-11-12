@@ -5,6 +5,7 @@ pub mod config;
 pub mod errors;
 pub mod history;
 pub mod hypr;
+pub mod inspect;
 pub mod manifest;
 pub mod model;
 pub mod paths;

@@ -161,6 +161,12 @@ fn local_parts(t: f64) -> (i64, u32, u32, u32, u32) {
     (y, m, d, (rem / 3600) as u32, ((rem / 60) % 60) as u32)
 }
 
+/// The local year and month of a timestamp.
+pub fn year_month(t: f64) -> (i64, u32) {
+    let (y, m, _, _, _) = local_parts(t);
+    (y, m)
+}
+
 static LOCAL_OFFSET: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 /// Seconds east of UTC, so days break at local midnight.
