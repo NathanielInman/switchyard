@@ -5,7 +5,7 @@
 <h1 align="center">Switchyard</h1>
 
 <p align="center">
-  <img src="docs/assets/hero.svg" width="100%" alt="A waybar with the Switchyard signal and the Roundhouse lamp. A click on the signal opens the Switchyard board: storefront finishes on the main line and android takes its place, ledger-api fails, its log opens on the TypeScript error, and the error is copied.">
+  <img src="docs/assets/hero.svg" width="100%" alt="A floating waybar of frosted pills whose Switchyard signal is amber with a 2: two builds are going. A click springs the board out of it: Projects, Deploys, Desk, History, Inspection and Shelf tabs, a link to Roundhouse dotted with its lamp, the main line with its memory gauge, and eight tiles. storefront finishes on the main line and android takes its place, then ledger-api fails and the signal turns red. A click on its tile opens the log on the TypeScript error, and y copies it with context. The board closes with the signal still red until a right-click acknowledges the failure.">
 </p>
 
 <p align="center">
