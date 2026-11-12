@@ -466,7 +466,7 @@ impl HistState {
     }
 }
 
-fn elide(p: &egui::Painter, text: &str, font: egui::FontId, max: f32) -> String {
+pub fn elide(p: &egui::Painter, text: &str, font: egui::FontId, max: f32) -> String {
     let width = |s: &str| p.layout_no_wrap(s.to_string(), font.clone(), FG).size().x;
     if width(text) <= max {
         return text.to_string();

@@ -25,6 +25,7 @@ pub enum Msg {
     Reply(Reply),
     Shelf(ShelfData),
     History(yard_core::protocol::HistoryData),
+    Inspection(yard_core::inspect::InspectionData),
 }
 
 #[derive(Clone, PartialEq)]
@@ -34,6 +35,16 @@ enum Mode {
     Shelf,
     History,
     Strip(String),
+    Inspection,
+}
+
+/// What each position in the tab row opens.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum TabKind {
+    Grid(usize),
+    History,
+    Inspection,
+    Shelf,
 }
 
 #[derive(Clone)]
@@ -116,6 +127,8 @@ pub struct App {
     shelf_rows: Vec<ShelfRow>,
     hist: crate::hist::HistState,
     history_rev: u64,
+    insp: crate::insp::InspState,
+    insp_rev: u64,
     order: Vec<String>,
     hints: Vec<(char, String)>,
     was_focused: bool,
@@ -216,6 +229,8 @@ impl App {
             shelf_rows: vec![],
             hist: Default::default(),
             history_rev: u64::MAX,
+            insp: Default::default(),
+            insp_rev: u64::MAX,
             order: vec![],
             hints: vec![],
             was_focused: false,
@@ -362,11 +377,22 @@ impl App {
                 self.shelf = Some(d);
             }
             Msg::History(d) => self.hist.set(d),
+            Msg::Inspection(d) => self.insp.set(d),
             Msg::Event(ev) => match ev {
                 Event::Snapshot(s) => {
                     self.skew = s.now - now();
                     let rev = s.history_rev;
+                    let irev = s.inspection.as_ref().map(|i| i.rev);
+                    if s.inspection.is_none() && self.mode == Mode::Inspection {
+                        self.mode = Mode::Grid;
+                    }
                     self.snap = Some(*s);
+                    if let Some(irev) = irev {
+                        if irev != self.insp_rev && self.mode == Mode::Inspection {
+                            self.insp_rev = irev;
+                            self.fetch_inspection();
+                        }
+                    }
                     if rev != self.history_rev && matches!(self.mode, Mode::History | Mode::Strip(_)) {
                         self.history_rev = rev;
                         self.fetch_history();
@@ -425,6 +451,59 @@ impl App {
         });
     }
 
+    fn fetch_inspection(&self) {
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            if let Ok(r) = yard_core::protocol::request(&Request::Inspection) {
+                if let Some(d) = r.inspection {
+                    let _ = tx.send(Msg::Inspection(*d));
+                    ctx.request_repaint();
+                }
+            }
+        });
+    }
+
+    fn insp_action(&mut self, a: crate::insp::Action) {
+        use crate::insp::Action;
+        match a {
+            Action::Act(dir, action) => {
+                self.toast("Working…", false);
+                self.send(Request::InspectAct { dir, action });
+            }
+            Action::Terminal(dir) => {
+                self.send(Request::Open { what: OpenWhat::Terminal, id: None, file: None, line: None, tool: None, dir: Some(dir) });
+                self.hide();
+            }
+            Action::Editor(dir) => {
+                self.send(Request::Open { what: OpenWhat::Editor, id: None, file: None, line: None, tool: None, dir: Some(dir) });
+                self.hide();
+            }
+        }
+    }
+
+    /// Tabs by position: the configured tabs, History, Inspection when it
+    /// is configured, then Shelf.
+    fn tab_kinds(&self) -> Vec<TabKind> {
+        let Some(s) = self.snap.as_ref() else { return vec![] };
+        let mut v: Vec<TabKind> = (0..s.tabs.len()).map(TabKind::Grid).collect();
+        v.push(TabKind::History);
+        if s.inspection.is_some() {
+            v.push(TabKind::Inspection);
+        }
+        v.push(TabKind::Shelf);
+        v
+    }
+
+    fn current_tab(&self) -> TabKind {
+        match self.mode {
+            Mode::Shelf => TabKind::Shelf,
+            Mode::History | Mode::Strip(_) => TabKind::History,
+            Mode::Inspection => TabKind::Inspection,
+            _ => TabKind::Grid(self.tab),
+        }
+    }
+
     fn history_action(&mut self, a: crate::hist::Action) {
         use crate::hist::Action;
         match a {
@@ -437,7 +516,14 @@ impl App {
                 self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
             }
             Action::OpenLog(r) => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None, dir: None });
+                self.send(Request::Open {
+                    what: OpenWhat::Log,
+                    id: Some(r.task.clone()),
+                    file: r.log.clone(),
+                    line: None,
+                    tool: None,
+                    dir: None,
+                });
                 self.hide();
             }
             Action::CopyError(r) => {
@@ -450,14 +536,18 @@ impl App {
     }
 
     fn select_tab(&mut self, i: usize) {
-        let n = self.tabs().len();
+        let Some(kind) = self.tab_kinds().get(i).copied() else { return };
         self.menu = None;
         self.selected = None;
-        if i == n {
+        if kind == TabKind::History {
             self.mode = Mode::History;
             self.history_rev = self.snap.as_ref().map(|s| s.history_rev).unwrap_or(0);
             self.fetch_history();
-        } else if i > n {
+        } else if kind == TabKind::Inspection {
+            self.mode = Mode::Inspection;
+            self.insp_rev = self.snap.as_ref().and_then(|s| s.inspection.as_ref()).map(|i| i.rev).unwrap_or(0);
+            self.fetch_inspection();
+        } else if kind == TabKind::Shelf {
             self.mode = Mode::Shelf;
             self.shelf_sel = 0;
             // Refetch on every open so edited key binds show; the last copy
@@ -472,7 +562,7 @@ impl App {
                     }
                 }
             });
-        } else {
+        } else if let TabKind::Grid(i) = kind {
             self.tab = i;
             self.mode = Mode::Grid;
             self.shown_at = Instant::now() - Duration::from_millis(60);
@@ -808,6 +898,12 @@ impl App {
             let UiEvent::Key { key, pressed, repeat, modifiers, .. } = e else { continue };
             let (key, pressed, repeat, shift) = (*key, *pressed, *repeat, modifiers.shift);
             if !pressed {
+                if self.mode == Mode::Inspection {
+                    if self.insp.key_up(key) {
+                        self.toast("Released early. Nothing changed.", false);
+                    }
+                    continue;
+                }
                 if self.spent_key == Some(key) {
                     self.spent_key = None;
                 } else if let Some(h) = self.hold.as_ref().filter(|h| h.key == Some(key)) {
@@ -816,7 +912,7 @@ impl App {
                 }
                 continue;
             }
-            if repeat && (self.hold.is_some() || self.spent_key == Some(key)) {
+            if repeat && (self.hold.is_some() || self.spent_key == Some(key) || self.insp.holding()) {
                 continue;
             }
             // Menus.
@@ -917,6 +1013,40 @@ impl App {
                 }
                 continue;
             }
+            if self.mode == Mode::Inspection && !matches!(key, Key::Tab | Key::Slash) {
+                match key {
+                    Key::Escape => {
+                        if !self.filter.is_empty() {
+                            self.filter.clear();
+                        } else if !self.insp.clear_tag() && !self.insp.cancel_hold() {
+                            self.hide();
+                        }
+                    }
+                    Key::ArrowDown | Key::J => self.insp.move_sel(1),
+                    Key::ArrowUp | Key::K => self.insp.move_sel(-1),
+                    Key::PageDown => self.insp.move_sel(8),
+                    Key::PageUp => self.insp.move_sel(-8),
+                    Key::Enter | Key::Space => self.insp.toggle(),
+                    _ => match letter(key) {
+                        Some(c @ ('t' | 'e')) => {
+                            if let Some(dir) = self.insp.selected_dir() {
+                                use crate::insp::Action;
+                                self.insp_action(if c == 't' { Action::Terminal(dir) } else { Action::Editor(dir) });
+                            }
+                        }
+                        Some('r') => self.send(Request::InspectRefresh),
+                        Some(c) => {
+                            self.insp.key_down(key, c);
+                        }
+                        None => {
+                            if let Some(d) = digit(key).filter(|d| *d >= 1) {
+                                self.select_tab(d - 1);
+                            }
+                        }
+                    },
+                }
+                continue;
+            }
             if let Mode::Log(_) = self.mode {
                 if key == Key::Escape {
                     self.log_key('\u{1b}');
@@ -937,12 +1067,9 @@ impl App {
                     continue;
                 }
                 Key::Tab => {
-                    let n = self.tabs().len() + 2;
-                    let cur = match self.mode {
-                        Mode::Shelf => n - 1,
-                        Mode::History | Mode::Strip(_) => n - 2,
-                        _ => self.tab,
-                    };
+                    let kinds = self.tab_kinds();
+                    let n = kinds.len().max(1);
+                    let cur = kinds.iter().position(|k| *k == self.current_tab()).unwrap_or(0);
                     self.select_tab(if shift { (cur + n - 1) % n } else { (cur + 1) % n });
                     continue;
                 }
@@ -1049,12 +1176,11 @@ impl App {
             let shelf_n = self.snap.as_ref().map(|s| s.tasks.iter().filter(|t| t.shelf || t.stale).count()).unwrap_or(0)
                 + self.shelf.as_ref().map(|d| d.tools.len()).unwrap_or(0);
             entries.push(("History".into(), 0));
+            if let Some(i) = self.snap.as_ref().and_then(|s| s.inspection.as_ref()) {
+                entries.push(("Inspection".into(), i.act));
+            }
             entries.push(("Shelf".into(), shelf_n));
-            let active = match self.mode {
-                Mode::Shelf => entries.len() - 1,
-                Mode::History | Mode::Strip(_) => entries.len() - 2,
-                _ => self.tab,
-            };
+            let active = self.tab_kinds().iter().position(|k| *k == self.current_tab()).unwrap_or(0);
             for (i, (name, n)) in entries.into_iter().enumerate() {
                 let text = if n > 0 { format!("{name} {n}") } else { name };
                 let galley = ui.painter().layout_no_wrap(text.clone(), mono(12.5), FG);
@@ -1081,7 +1207,7 @@ impl App {
                 }
                 if r.changed() {
                     self.selected = if self.filter.is_empty() { None } else { Some(0) };
-                    if self.mode != Mode::Shelf {
+                    if self.mode != Mode::Shelf && self.mode != Mode::Inspection {
                         self.mode = Mode::Grid;
                     }
                 }
@@ -1458,6 +1584,7 @@ impl App {
                 Mode::Shelf => "↵ run   m man page   / filter   tab next   esc close".into(),
                 Mode::History => "↑↓ move   ↵ expand   o open runs   tab next   esc close".into(),
                 Mode::Strip(_) => "←→ runs   r replay   l log   y copy error   esc back".into(),
+                Mode::Inspection => "↑↓ move   ↵ open   w b hold to clear   t terminal   e editor   / filter   esc close".into(),
             }
         };
         p.text(pos2(rect.left() + 4.0, rect.center().y + 2.0), Align2::LEFT_CENTER, text, mono(11.0), DIM);
@@ -1612,11 +1739,15 @@ impl eframe::App for App {
                 self.hide();
             }
             self.check_hold();
+            if let Some(a) = self.insp.check_hold() {
+                self.insp_action(a);
+            }
             if let Mode::Log(_) = self.mode {
                 self.poll_log();
             }
             let busy = self.shown_at.elapsed() < Duration::from_millis(900)
                 || self.hold.is_some()
+                || self.insp.holding()
                 || self.press.is_some()
                 || self.snap.as_ref().is_some_and(|s| s.tasks.iter().any(|t| matches!(t.phase, Phase::Building | Phase::Waiting)));
             ctx.request_repaint_after(Duration::from_millis(if busy { 16 } else { 250 }));
@@ -1672,6 +1803,13 @@ impl eframe::App for App {
                             let now = self.now();
                             if let Some(a) = self.hist.strip(ui, now) {
                                 self.history_action(a);
+                            }
+                        }
+                        Mode::Inspection => {
+                            let now = self.now();
+                            let filter = self.filter.clone();
+                            if let Some(a) = self.insp.view(ui, max_h, &filter, now) {
+                                self.insp_action(a);
                             }
                         }
                     }
