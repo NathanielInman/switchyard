@@ -299,13 +299,14 @@ tree, which those commands do not look at.
 ### Repos and tags
 
 - **Discovery.** Every directory matched by `roots` (a trailing `/*` means
-  each child) that holds a `.git` directory is a repo. A directory whose
+  each child; hidden folders are skipped) that holds a `.git` directory is a
+  repo. A directory whose
   `.git` is a file (`gitdir: ...`) is a worktree and folds into the row of
   the repo it belongs to. Nested repos and submodules are not rows.
 - **Tags.** Each repo gets tags from its `origin` URL: the owner (the first
   path segment, lowercased: `digitalturbine`, `twinspear-games`,
   `nathanielinman`) and the host's short name (`github`, `gitlab`, or the
-  host itself). `inspection.tags` renames tags. A repo whose owner is listed in
+  host itself). Groups that hold `mine` repos come first. `inspection.tags` renames tags. A repo whose owner is listed in
   `mine` also gets the tag `mine`. A repo without `origin` gets `local`.
 - **Filter.** `/` filters by name; a `#tag` term keeps only repos with that
   tag. A row of tag chips above the list does the same with a click. The
@@ -353,9 +354,9 @@ A row's card has these sections, each left out when it has nothing to say:
 - **Rhythm.** Commits per month for the last 14 months, as a sparkline.
 - **People.** Authors by commit count through `.mailmap` (`%aN`), with every
   identity in `me` folded into one. Shown only when the repo has two or more
-  human authors; names ending in `[bot]` and known release bots are listed
-  apart. The card flags a top author with no commits in six months, and notes
-  that squash merges count mergers.
+  human authors; names ending in `[bot]` or `-bot` are marked as bots. The
+  card flags a top author with no commits in six months. In a repo that
+  squash-merges, these counts are who merged, not who wrote.
 - **Contributors.** On `mine` repos, every identity outside `me`, with its
   count and latest date. This is where older `foreign_author` commits stay
   visible after the 30 days.
@@ -367,7 +368,7 @@ A row's card has these sections, each left out when it has nothing to say:
 
 | Action | Offered when | Does | Confirm |
 |---|---|---|---|
-| Remove worktree | `merged_worktree` | `git worktree remove <path>` | hold |
+| Remove worktrees | `merged_worktree` | `git worktree remove <path>` for each merged, clean worktree | hold |
 | Delete merged branches | `merged_branches` | lists them, then `git branch -d` each (never `-D`) | hold |
 | Terminal here | always | the configured `terminal` in the repo or worktree | none |
 | Open in editor | always | the configured `editor` on the repo | none |
@@ -379,19 +380,23 @@ pushes or touches a remote.
 
 ### Cost and caching
 
-- **Status.** `git status --porcelain=v2 --branch` per repo and worktree on
-  the existing git watch, at most once a minute per repo, and on board open.
-  102 repos take about 0.2 s.
-- **History.** One `git log --no-merges --name-only` pass per repo yields all
-  the git signals together. Results are kept per repo in
-  `~/.local/state/switchyard/inspection.json` with the HEAD they were computed
-  at, as per-month counts so the window can roll forward. When HEAD moves, only
-  `<cached>..HEAD` is read; when the cached HEAD is no longer an ancestor
-  (rebase, reset), the repo is read again in full. A full first pass over 102
-  repos takes about 6.5 s.
-- **Priority.** History passes run one at a time on a worker thread, as child
-  processes at nice 19 (background QoS on macOS, idle priority on Windows).
-  The event loop never waits on git.
+- **Status.** `git status --porcelain=v2 --branch`, the stash list, unpushed
+  commits, worktrees and merged branches, per repo: once a minute while the
+  board is open, every ten minutes while it is hidden, and on board open when
+  the last sweep is older than 30 seconds. Git runs with
+  `GIT_OPTIONAL_LOCKS=0`, so a sweep never takes the index lock from the
+  user's own git.
+- **History.** Two `git log --no-merges` passes per repo (the window with
+  file names, and every commit's author for people) yield all the history
+  signals, plus a walk of the build output folders. Results are kept per repo
+  in `~/.local/state/switchyard/inspection.json` with the HEAD they were read
+  at. A repo is read again when its HEAD moves or its read is a day old, so
+  the window rolls forward daily. `yard inspect --refresh` reads every repo
+  again. A first pass over a hundred repos takes under half a minute, and
+  rows fill in as each repo finishes.
+- **Priority.** Sweeps and history passes run on worker threads, one of each
+  at a time. On Linux the thread drops to nice 19, which git and the size
+  walk inherit. The event loop never waits on git.
 
 ### Families to come
 
@@ -643,13 +648,16 @@ With `[inspection]` configured:
 {"cmd":"inspect_act","dir":"/home/me/code/storefront","action":"worktree_remove","target":"/home/me/code/storefront-fix"}
 ```
 
-`inspection` answers with the rows (dir, name, tags, lamp, headline, the
-findings and the worktrees). `inspect` answers with one repo's details.
-`inspect_act` answers once the action finishes, with its outcome or the
-reason it was refused. The snapshot carries `inspection: {"act":n,"tidy":n}`
-for the tab label, and a board subscription receives `{"event":"inspection"}`
-when any row changes. The CLI has `yard inspect [--tag <tag>] [--json]` and
-`yard inspect <dir>`.
+`inspection` answers with every row, its findings, actions and details, and
+the tags with their counts. `inspect` takes a directory or a repo name and
+answers with that one row. `inspect_act` (`remove_worktrees` or
+`delete_branches`) answers once the action finishes, with its outcome or the
+reason it was refused. `{"cmd":"inspect_refresh"}` reads every repo again.
+The snapshot carries `inspection: {"repos":n,"act":n,"tidy":n,"rev":n}`
+while Inspection is configured; a board refetches when `rev` moves, as it
+does for History. `Open` takes a `dir`, so the terminal and editor keys work
+on any repo. The CLI has `yard inspect [repo] [--tag <tag>] [--json]
+[--refresh]` and `yard inspect <repo> --remove-worktrees | --delete-branches`.
 
 ## Keyboard
 
@@ -667,9 +675,10 @@ when any row changes. The CLI has `yard inspect [--tag <tag>] [--json]` and
 | Log | `f` | follow output |
 | Log | `a` | acknowledge (clear the red lamp) |
 | Inspection | arrows, Enter | move, open the selected row's details |
-| Inspection | `/`, `#` | filter by name, by tag |
-| Inspection | action key | the action shown on the card (hold it for guarded actions) |
+| Inspection | `/`, `#` | filter by name, by tag (`#` on the Linux board; type it after `/` in the tray) |
+| Inspection | `w`, `b` | hold to remove merged worktrees or delete merged branches (the open card's) |
 | Inspection | `t`, `e` | terminal or editor in the selected repo |
+| Inspection | `r` | read every repo again |
 | Any | Esc | back, then close |
 
 ## Security notes

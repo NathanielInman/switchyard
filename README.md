@@ -138,6 +138,7 @@ board's Roundhouse link has a drawer to open.
 | | |
 |---|---|
 | **History** | Every run is recorded with its step times, retries, queue wait, peak memory and commit, and folded into episodes by day: "broken for 18m, fixed by 3f2a1c", "9 ok, 23% slower in next build". Open a task's strip to see every run as a bar against its usual time, and any past run's own log. `yard history` prints the same in a terminal. |
+| **Inspection** | Optional: add `[inspection]` with `roots = ["~/code/*"]` and a tab lists every repo there with one lamp and the thing that most needs you: commits on no remote, old uncommitted work, merged worktrees and branches, bots committing to your repos. A card shows churn and bug hotspots, monthly rhythm, who writes the code and build output size, and holding <kbd>w</kbd> or <kbd>b</kbd> clears merged worktrees or branches. Tags from each remote (`github`, your org) filter the list. `yard inspect` prints the same in a terminal. |
 | **Anchoring** | Reads the bar's position and your click from Hyprland's IPC, so the panel grows out of the icon on any edge. Falls back to a centered panel elsewhere. |
 | **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (rerun yesterday's branch), open the log, open in your editor, a terminal in the repo, copy the exact command. |
 | **Guarded tasks** | `confirm = "hold"` makes a task fire only after a 1.2 second hold. `confirm = "type"` asks you to type its name. For deploys that drop users. |
@@ -297,6 +298,7 @@ yard run <id> [-p k=v]     run a task, with parameters or --variant
 yard stop <id>             stop a task
 yard log <id> [-f]         print or follow a task's log
 yard history [id]          what ran, folded into episodes by day
+yard inspect [repo]        what each repo needs from you (with [inspection])
 yard ack                   acknowledge failures
 yard add                   scaffold a .yard.toml in the current repo
 yard bar                   waybar module: stream the aggregate state
@@ -325,6 +327,8 @@ Switchyard tasks to a repo.
 | <kbd>a</kbd> | | acknowledge |
 | <kbd>o</kbd> (History) | open a task's runs | |
 | <kbd>←</kbd> <kbd>→</kbd> (a strip) | step through runs; <kbd>r</kbd> replay, <kbd>l</kbd> its log | |
+| <kbd>w</kbd> <kbd>b</kbd> (Inspection) | hold to clear an open repo's merged worktrees or branches | |
+| <kbd>t</kbd> <kbd>e</kbd> (Inspection) | a terminal or your editor in the selected repo | |
 | <kbd>Esc</kbd> | close | back |
 
 ## Theming
