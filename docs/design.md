@@ -326,6 +326,7 @@ finding. `info` never lights a row.
 | `stale_dirty` | git | act | the oldest uncommitted change (by file mtime) is more than 7 days old |
 | `dirty` | git | info | anything is uncommitted |
 | `foreign_author` | git | tidy | on a `mine` repo, a commit in the last 30 days is authored by anyone not in `me` |
+| `foreign_history` | git | tidy | on a `mine` repo, anyone not in `me` authored a commit in the history, and none in the last 30 days (`foreign_author` covers that) |
 | `merged_worktree` | git | tidy | a linked worktree's branch is an ancestor of the default branch and the worktree is clean |
 | `merged_branches` | git | tidy | local branches (not checked out anywhere) are ancestors of the default branch |
 | `behind` | git | tidy | the current branch is behind its upstream as of the last fetch |
@@ -359,7 +360,8 @@ A row's card has these sections, each left out when it has nothing to say:
   squash-merges, these counts are who merged, not who wrote.
 - **Contributors.** On `mine` repos, every identity outside `me`, with its
   count and latest date. This is where older `foreign_author` commits stay
-  visible after the 30 days.
+  visible after the 30 days; `foreign_history` keeps the row lit until the
+  history is rewritten.
 - **Firefighting.** Commits in the window whose subject mentions revert,
   hotfix, emergency or rollback, as a count that expands to the list.
 - **Actions.** The actions the findings allow, each with its key.

@@ -42,6 +42,7 @@ pub const RULES: &[(&str, Severity)] = &[
     ("stale_dirty", Severity::Act),
     ("dirty", Severity::Info),
     ("foreign_author", Severity::Tidy),
+    ("foreign_history", Severity::Tidy),
     ("merged_worktree", Severity::Tidy),
     ("merged_branches", Severity::Tidy),
     ("behind", Severity::Tidy),
@@ -771,6 +772,17 @@ pub fn evaluate(dir: &Path, status: Status, signals: Option<Signals>, cfg: &Insp
             if let Some(top) = foreign.first() {
                 let more = if foreign.len() > 1 { format!(" and {} more", foreign.len() - 1) } else { String::new() };
                 add("foreign_author", format!("{} wrote {} this month{more}", top.name, plural(top.month, "commit", "commits")));
+            } else {
+                let past: Vec<&Author> = sig.authors.iter().filter(|a| !a.me && a.commits > 0).collect();
+                if let Some(top) = past.first() {
+                    let total: u32 = past.iter().map(|a| a.commits).sum();
+                    let more = match past.len() {
+                        1 => String::new(),
+                        2 => " and 1 other".into(),
+                        n => format!(" and {} others", n - 1),
+                    };
+                    add("foreign_history", format!("history has {} by {}{more}", plural(total, "commit", "commits"), top.name));
+                }
             }
         }
     }
@@ -1112,6 +1124,25 @@ mod tests {
         assert_eq!(r.actions.len(), 2);
         assert_eq!(r.actions[0].kind, ActionKind::RemoveWorktrees);
         assert_eq!(r.actions[1].label, "delete 2 merged branches");
+
+        let mut s = base.clone();
+        s.remote_url = Some("https://github.com/NathanielInman/switchyard.git".into());
+        let sig = Signals {
+            authors: vec![
+                Author { name: "Nathaniel Inman".into(), commits: 500, month: 10, me: true, ..Default::default() },
+                Author { name: "github-actions[bot]".into(), commits: 178, bot: true, ..Default::default() },
+                Author { name: "claude".into(), commits: 2, ..Default::default() },
+            ],
+            ..Default::default()
+        };
+        let r = evaluate(Path::new("/s/switchyard"), s.clone(), Some(sig.clone()), &c, now);
+        assert_eq!(r.lamp, Lamp::Tidy);
+        assert_eq!(r.headline, "history has 180 commits by github-actions[bot] and 1 other");
+        let mut recent = sig.clone();
+        recent.authors[2].month = 1;
+        let r = evaluate(Path::new("/s/switchyard"), s, Some(recent), &c, now);
+        assert_eq!(r.headline, "claude wrote 1 commit this month");
+        assert!(!r.findings.iter().any(|f| f.rule == "foreign_history"));
 
         let mut s = base.clone();
         s.unpushed = 2;
