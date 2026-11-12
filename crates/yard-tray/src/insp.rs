@@ -371,6 +371,9 @@ impl InspState {
                         t.push_str(" · merged");
                     }
                     t.push_str(&if w.dirty > 0 { format!(" · {} uncommitted", w.dirty) } else { " · clean".into() });
+                    if w.temp {
+                        t.push_str(" · in a temp folder");
+                    }
                     if let Some(lc) = w.last_commit {
                         t.push_str(&format!(" · last commit {}", ago(now - lc)));
                     }

@@ -324,6 +324,7 @@ finding. `info` never lights a row.
 |---|---|---|---|
 | `unpushed` | git | act | a local branch has commits on no remote for more than 3 days |
 | `stale_dirty` | git | act | the oldest uncommitted change (by file mtime) is more than 7 days old |
+| `temp_worktree` | git | act | a linked worktree with uncommitted files sits in a folder the OS cleans (`/tmp`, `/var/tmp`, the temp dir) while its repo does not |
 | `dirty` | git | info | anything is uncommitted |
 | `foreign_author` | git | tidy | on a `mine` repo, a commit in the last 30 days is authored by anyone not in `me` |
 | `foreign_history` | git | tidy | on a `mine` repo, anyone not in `me` authored a commit in the history, and none in the last 30 days (`foreign_author` covers that) |
@@ -345,7 +346,8 @@ act count.
 A row's card has these sections, each left out when it has nothing to say:
 
 - **Now.** Branch, uncommitted count, ahead and behind, stashes, each
-  worktree with its branch and state, build output size.
+  worktree with its branch and state (marked when it sits in a temp
+  folder), build output size.
 - **Hotspots.** The files changed most in the window (`window`, default one
   year) next to the number of fix commits that touched them. Files high on
   both are marked. Paths matching `ignore` are left out. A commit counts as a

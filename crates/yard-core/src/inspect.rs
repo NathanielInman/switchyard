@@ -40,6 +40,7 @@ impl Severity {
 pub const RULES: &[(&str, Severity)] = &[
     ("unpushed", Severity::Act),
     ("stale_dirty", Severity::Act),
+    ("temp_worktree", Severity::Act),
     ("dirty", Severity::Info),
     ("foreign_author", Severity::Tidy),
     ("foreign_history", Severity::Tidy),
@@ -247,6 +248,10 @@ pub struct Worktree {
     pub merged: bool,
     #[serde(default)]
     pub last_commit: Option<f64>,
+    /// The worktree sits in a folder the OS cleans (`/tmp`, `/var/tmp`, the
+    /// temp dir) while its repo does not.
+    #[serde(default)]
+    pub temp: bool,
 }
 
 /// What `git status` and friends say right now. Cheap to read.
@@ -766,6 +771,18 @@ pub fn evaluate(dir: &Path, status: Status, signals: Option<Signals>, cfg: &Insp
     } else if s.dirty > 0 {
         add("dirty", format!("{} uncommitted", plural(s.dirty, "file", "files")));
     }
+    let temp_dirty: Vec<&Worktree> = s.worktrees.iter().filter(|w| w.temp && w.dirty > 0).collect();
+    match temp_dirty.as_slice() {
+        [] => {}
+        [w] => {
+            let p = Path::new(&w.path);
+            let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let parent = p.parent().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let files = if w.dirty == 1 { "file" } else { "files" };
+            add("temp_worktree", format!("worktree {name} in {parent} has {} uncommitted {files}", w.dirty));
+        }
+        many => add("temp_worktree", format!("{} worktrees in temp folders have uncommitted files", many.len())),
+    }
     if mine && !cfg.me.is_empty() {
         if let Some(sig) = &signals {
             let foreign: Vec<&Author> = sig.authors.iter().filter(|a| !a.me && a.month > 0).collect();
@@ -1114,8 +1131,16 @@ mod tests {
                 dirty: 0,
                 merged: true,
                 last_commit: Some(now - 22.0 * DAY),
+                temp: false,
             },
-            Worktree { path: "/s/x-dtcd706".into(), branch: Some("DTCD-706".into()), dirty: 1, merged: true, last_commit: None },
+            Worktree {
+                path: "/s/x-dtcd706".into(),
+                branch: Some("DTCD-706".into()),
+                dirty: 1,
+                merged: true,
+                last_commit: None,
+                temp: false,
+            },
         ];
         s.merged_branches = vec!["a".into(), "b".into()];
         let r = evaluate(Path::new("/s/x"), s, None, &c, now);
@@ -1124,6 +1149,18 @@ mod tests {
         assert_eq!(r.actions.len(), 2);
         assert_eq!(r.actions[0].kind, ActionKind::RemoveWorktrees);
         assert_eq!(r.actions[1].label, "delete 2 merged branches");
+
+        let mut s = base.clone();
+        s.worktrees = vec![
+            Worktree { path: "/tmp/x-dev".into(), branch: Some("dev".into()), dirty: 3, temp: true, ..Default::default() },
+            Worktree { path: "/tmp/x-clean".into(), branch: Some("c".into()), dirty: 0, temp: true, ..Default::default() },
+        ];
+        let r = evaluate(Path::new("/s/x"), s.clone(), None, &c, now);
+        assert_eq!(r.lamp, Lamp::Act);
+        assert_eq!(r.headline, "worktree x-dev in /tmp has 3 uncommitted files");
+        s.worktrees[1].dirty = 1;
+        let r = evaluate(Path::new("/s/x"), s, None, &c, now);
+        assert_eq!(r.headline, "2 worktrees in temp folders have uncommitted files");
 
         let mut s = base.clone();
         s.remote_url = Some("https://github.com/NathanielInman/switchyard.git".into());

@@ -110,6 +110,20 @@ fn mtime(p: &Path) -> Option<f64> {
 }
 
 /// Reads a repo's state. `None` when git cannot read it at all.
+/// Folders the OS empties on its own: a worktree here can lose its
+/// uncommitted work without anyone deleting it.
+fn temp_roots() -> Vec<PathBuf> {
+    let mut v = vec![std::env::temp_dir()];
+    if cfg!(unix) {
+        v.push(PathBuf::from("/tmp"));
+        v.push(PathBuf::from("/var/tmp"));
+    }
+    let mut v: Vec<PathBuf> = v.into_iter().filter_map(|p| p.canonicalize().ok()).collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
 pub fn status(dir: &Path) -> Option<Status> {
     let mut c = git(dir);
     c.args(["status", "--porcelain=v2", "--branch", "--untracked-files=normal"]);
@@ -146,6 +160,9 @@ pub fn status(dir: &Path) -> Option<Status> {
     let mut c = git(dir);
     c.args(["worktree", "list", "--porcelain"]);
     let canon = dir.canonicalize().unwrap_or(dir.to_path_buf());
+    let temps = temp_roots();
+    let in_temp = |p: &Path| temps.iter().any(|t| p.starts_with(t));
+    let repo_in_temp = in_temp(&canon);
     for w in out(c).map(|t| inspect::parse_worktrees(&t)).unwrap_or_default() {
         let p = PathBuf::from(&w.path);
         if w.bare || p.canonicalize().unwrap_or(p.clone()) == canon || !p.exists() {
@@ -155,12 +172,14 @@ pub fn status(dir: &Path) -> Option<Status> {
             (Some(b), Some(d)) => is_ancestor(dir, &format!("refs/heads/{b}"), d),
             _ => false,
         };
+        let temp = !repo_in_temp && in_temp(&p.canonicalize().unwrap_or(p.clone()));
         worktrees.push(Worktree {
             path: w.path.clone(),
             branch: w.branch.clone(),
             dirty: dirty_count(&p),
             merged,
             last_commit: last_commit(&p),
+            temp,
         });
     }
 
