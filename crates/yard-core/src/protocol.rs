@@ -106,7 +106,24 @@ pub enum Request {
         line: Option<u32>,
         #[serde(default)]
         tool: Option<String>,
+        /// A directory to open in when there is no task, such as a repo on
+        /// the Inspection tab.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dir: Option<String>,
     },
+    /// Every repo on the Inspection tab.
+    Inspection,
+    /// One repo by its directory.
+    Inspect {
+        dir: String,
+    },
+    /// Runs one of a repo's actions.
+    InspectAct {
+        dir: String,
+        action: crate::inspect::ActionKind,
+    },
+    /// Reads every repo again now.
+    InspectRefresh,
     /// Sent by the runner inside a task unit.
     Progress {
         run: u64,
@@ -139,6 +156,8 @@ pub struct Reply {
     pub shelf: Option<ShelfData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<Box<HistoryData>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inspection: Option<Box<crate::inspect::InspectionData>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

@@ -26,6 +26,8 @@ pub struct Config {
     pub tabs: Vec<TabConfig>,
     pub shelf: ShelfConfig,
     pub bar: BarConfig,
+    /// The optional Inspection tab; `None` turns it and its scanning off.
+    pub inspection: Option<crate::inspect::InspectionConfig>,
 }
 
 impl Default for Config {
@@ -45,6 +47,7 @@ impl Default for Config {
             tabs: vec![],
             shelf: ShelfConfig::default(),
             bar: BarConfig::default(),
+            inspection: None,
         }
     }
 }
@@ -242,6 +245,10 @@ mod tests {
             icon = "S"
             [bar.format]
             failed = "{icon} {count}"
+            [inspection]
+            roots = ["~/code/*"]
+            [inspection.severity]
+            foreign_author = "act"
         "#;
         let c: Config = toml::from_str(text).unwrap();
         assert_eq!(c.ok_flash, 4);
@@ -251,6 +258,10 @@ mod tests {
         assert_eq!(c.shelf.extra[0].name, "tokei");
         assert_eq!(c.bar.format["failed"], "{icon} {count}");
         assert_eq!(c.board.bar_namespace, "waybar");
+        let i = c.inspection.unwrap();
+        assert_eq!(i.roots, vec!["~/code/*"]);
+        assert_eq!(i.severity("foreign_author"), crate::inspect::Severity::Act);
+        assert!(toml::from_str::<Config>("").unwrap().inspection.is_none());
     }
 
     #[test]

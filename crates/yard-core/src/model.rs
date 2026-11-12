@@ -235,6 +235,9 @@ pub struct Snapshot {
     /// is not running.
     #[serde(default)]
     pub machine: Option<MachineView>,
+    /// Row counts for the Inspection tab; `None` when it is not configured.
+    #[serde(default)]
+    pub inspection: Option<crate::inspect::InspectionCounts>,
     /// Unix seconds on the daemon's clock, so clients can correct for skew.
     pub now: f64,
 }

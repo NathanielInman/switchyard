@@ -3,6 +3,7 @@
 mod cli;
 mod daemon;
 mod history;
+mod inspect;
 mod runlog;
 mod runner;
 mod setup;
@@ -27,6 +28,10 @@ usage: yard <command> [args]
   ack [id]                 acknowledge failures
   status                   one-line summary
   history [id] [--json]    what ran, folded into episodes by day
+  inspect [repo] [--tag t] [--json] [--refresh]
+                           what each repo needs from you (needs [inspection])
+  inspect <repo> --remove-worktrees | --delete-branches
+                           clear merged worktrees or branches
   add [dir]                scaffold a .yard.toml for a repo
   reload                   re-read config and manifests now
   bar                      waybar module: stream the aggregate state
@@ -72,6 +77,7 @@ fn dispatch(args: &[String]) -> Result<i32> {
         "ack" => cli::ack(rest),
         "status" => cli::status(),
         "history" => cli::history(rest),
+        "inspect" | "inspection" => cli::inspect(rest),
         "add" => cli::add(rest),
         "reload" => cli::simple(yard_core::protocol::Request::Reload),
         "bar" => cli::bar(),

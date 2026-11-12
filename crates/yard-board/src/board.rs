@@ -559,7 +559,7 @@ impl Board {
                 self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
             }
             Action::OpenLog(r) => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::CopyError(r) => {
@@ -1305,7 +1305,7 @@ impl Board {
         match row {
             Some(ShelfRow::Task(id)) => self.activate(&id),
             Some(ShelfRow::Tool(name)) => {
-                self.send(Request::Open { what: OpenWhat::Tool, id: None, file: None, line: None, tool: Some(name) });
+                self.send(Request::Open { what: OpenWhat::Tool, id: None, file: None, line: None, tool: Some(name), dir: None });
                 self.hide();
             }
             _ => {}
@@ -1380,7 +1380,7 @@ impl Board {
             }
             'e' => {
                 let (file, line) = v.error.as_ref().map(|e| (e.file.clone(), e.line)).unwrap_or((None, None));
-                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id.clone()), file, line, tool: None });
+                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id.clone()), file, line, tool: None, dir: None });
                 self.hide();
             }
             'r' => {
@@ -1400,7 +1400,7 @@ impl Board {
                 self.render(false);
             }
             't' => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(id.clone()), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(id.clone()), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             '\u{1b}' => {
@@ -1698,12 +1698,12 @@ impl Board {
             Action::Log => self.open_log(&id),
             Action::Editor => {
                 self.close_menu();
-                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::Terminal => {
                 self.close_menu();
-                self.send(Request::Open { what: OpenWhat::Terminal, id: Some(id), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Terminal, id: Some(id), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::CopyCommand => {
@@ -1928,7 +1928,7 @@ impl Board {
                     let idx = self.shelf_list.selected_row().map(|r| r.index()).unwrap_or(-1);
                     let row = self.shelf_rows.borrow().get(idx.max(0) as usize).cloned();
                     if let Some(ShelfRow::Tool(name)) = row {
-                        self.send(Request::Open { what: OpenWhat::Man, id: None, file: None, line: None, tool: Some(name) });
+                        self.send(Request::Open { what: OpenWhat::Man, id: None, file: None, line: None, tool: Some(name), dir: None });
                         self.hide();
                     }
                     return Stop;

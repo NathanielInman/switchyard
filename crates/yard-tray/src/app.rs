@@ -437,7 +437,7 @@ impl App {
                 self.run_with(&r.task, r.params.clone(), r.variant.clone(), false, confirm);
             }
             Action::OpenLog(r) => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(r.task.clone()), file: r.log.clone(), line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::CopyError(r) => {
@@ -570,7 +570,7 @@ impl App {
             }
             'e' => {
                 let (file, line) = v.error.as_ref().map(|e| (e.file.clone(), e.line)).unwrap_or((None, None));
-                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file, line, tool: None });
+                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file, line, tool: None, dir: None });
                 self.hide();
             }
             'r' => {
@@ -595,7 +595,7 @@ impl App {
                 self.mode = Mode::Grid;
             }
             't' => {
-                self.send(Request::Open { what: OpenWhat::Log, id: Some(id), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Log, id: Some(id), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             '\u{1b}' => self.mode = Mode::Grid,
@@ -733,12 +733,12 @@ impl App {
             Action::Log => self.open_log(&id),
             Action::Editor => {
                 self.menu = None;
-                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Editor, id: Some(id), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::Terminal => {
                 self.menu = None;
-                self.send(Request::Open { what: OpenWhat::Terminal, id: Some(id), file: None, line: None, tool: None });
+                self.send(Request::Open { what: OpenWhat::Terminal, id: Some(id), file: None, line: None, tool: None, dir: None });
                 self.hide();
             }
             Action::CopyCommand => {
@@ -1029,7 +1029,7 @@ impl App {
             Some(ShelfRow::Task(id, _, _)) if !man => self.activate(&id),
             Some(ShelfRow::Tool(name, _)) => {
                 let what = if man { OpenWhat::Man } else { OpenWhat::Tool };
-                self.send(Request::Open { what, id: None, file: None, line: None, tool: Some(name) });
+                self.send(Request::Open { what, id: None, file: None, line: None, tool: Some(name), dir: None });
                 self.hide();
             }
             _ => {}

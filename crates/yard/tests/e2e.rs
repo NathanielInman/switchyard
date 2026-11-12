@@ -262,3 +262,75 @@ fn heavy_builds_wait_while_roundhouse_says_act() {
     *level.lock().unwrap() = "calm";
     sb.wait_for("heavy-a", &["building", "ok", "idle"], 15);
 }
+
+fn git(dir: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=Test", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main"])
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+#[test]
+fn inspection_reads_repos_and_clears_merged_branches() {
+    if Command::new("git").arg("--version").output().is_err() {
+        return;
+    }
+    let sb = Sandbox::new("inspect");
+    let repo = sb.root.join("repos/app");
+    std::fs::create_dir_all(&repo).unwrap();
+    assert!(git(&repo, &["init", "-q"]));
+    std::fs::write(repo.join("a.txt"), "a").unwrap();
+    assert!(git(&repo, &["add", "."]));
+    assert!(git(&repo, &["commit", "-q", "-m", "fix: start"]));
+    assert!(git(&repo, &["branch", "done"]));
+
+    // Off until configured.
+    let off = sb.cmd().args(["inspect"]).output().unwrap();
+    assert!(!off.status.success());
+    assert!(String::from_utf8_lossy(&off.stderr).contains("Inspection is off"));
+
+    let cfg = sb.root.join("config/config.toml");
+    let mut text = std::fs::read_to_string(&cfg).unwrap();
+    text.push_str(&format!("[inspection]\nroots = [\"{}/*\"]\n", sb.root.join("repos").to_string_lossy().replace('\\', "/")));
+    std::fs::write(&cfg, text).unwrap();
+    sb.cmd().arg("reload").output().unwrap();
+
+    let read = || -> Value {
+        let o = sb.cmd().args(["inspect", "--json"]).output().unwrap();
+        serde_json::from_slice(&o.stdout).unwrap_or(Value::Null)
+    };
+    let start = Instant::now();
+    let app = loop {
+        let v = read();
+        let app = v["repos"].as_array().and_then(|a| a.iter().find(|r| r["name"] == "app").cloned());
+        if let Some(app) = app.filter(|a| !a["signals"].is_null()) {
+            break app;
+        }
+        assert!(start.elapsed() < Duration::from_secs(30), "app never appeared: {v}");
+        std::thread::sleep(Duration::from_millis(200));
+    };
+    assert_eq!(app["tags"], serde_json::json!(["local"]));
+    assert_eq!(app["status"]["merged_branches"], serde_json::json!(["done"]));
+    assert_eq!(app["lamp"], "tidy");
+    assert_eq!(app["signals"]["hotspots"][0]["file"], "a.txt");
+    assert_eq!(app["signals"]["hotspots"][0]["fixes"], 1);
+
+    let o = sb.cmd().args(["inspect", "app", "--delete-branches"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&o.stdout).contains("Deleted 1 merged branch"), "{o:?}");
+    let start = Instant::now();
+    loop {
+        let v = read();
+        let app = v["repos"].as_array().and_then(|a| a.iter().find(|r| r["name"] == "app").cloned()).unwrap_or(Value::Null);
+        if app["status"]["merged_branches"] == serde_json::json!([]) {
+            assert_eq!(app["lamp"], "clear");
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(30), "the branch stayed: {app}");
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}

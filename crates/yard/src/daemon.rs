@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use yard_core::config::Config;
 use yard_core::errors::{failing_section, find_first_error, ErrorHit};
 use yard_core::history::{GitRef, RunRecord, StepTime};
+use yard_core::inspect::{InspectionData, Signals, Status};
 use yard_core::manifest::{self, NotifyMode, Rerun, Step, TaskDef};
 use yard_core::model::*;
 use yard_core::paths;
@@ -25,6 +26,8 @@ use yard_core::transport::{Listener, Stream};
 use yard_core::Problem;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
+
+const INSPECTION_OFF: &str = "Inspection is off. Add an [inspection] table with roots to config.toml.";
 
 #[cfg(unix)]
 extern "C" fn on_signal(_: libc::c_int) {
@@ -40,6 +43,13 @@ enum Msg {
     Git(Vec<(PathBuf, Option<GitInfo>)>),
     /// Roundhouse's lamp, or `None` when it is not running.
     Machine(Option<MachineView>),
+    /// Inspection: every repo's status from one sweep.
+    InspectStatus(Vec<(PathBuf, Option<Status>)>),
+    /// Inspection: one repo's history, read because its HEAD moved.
+    InspectSignals(PathBuf, Signals),
+    InspectHistoryDone,
+    /// Inspection: an action finished in this repo; read it again.
+    InspectActed(PathBuf),
     Wake,
 }
 
@@ -174,6 +184,27 @@ pub struct Daemon {
     dirty: bool,
     history_rev: u64,
     base_env: BTreeMap<String, String>,
+    insp: Insp,
+}
+
+/// The Inspection tab's state. Idle unless `[inspection]` is configured.
+#[derive(Default)]
+struct Insp {
+    status: BTreeMap<PathBuf, Status>,
+    /// History per repo dir, kept across restarts in `inspection.json`.
+    cache: HashMap<String, Signals>,
+    cache_dirty: bool,
+    data: Option<InspectionData>,
+    rev: u64,
+    status_busy: bool,
+    status_at: Option<Instant>,
+    history_busy: bool,
+    queue: Vec<PathBuf>,
+    loaded: bool,
+}
+
+fn inspection_file() -> PathBuf {
+    paths::state_dir().join("inspection.json")
 }
 
 pub fn run() -> Result<()> {
@@ -213,6 +244,7 @@ pub fn run() -> Result<()> {
     eprintln!("switchyard: {} tasks, {} backend, {}", d.tasks.len(), d.sup.name(), yard_core::transport::endpoint().display());
     d.event_loop(rx);
     d.history.save();
+    d.inspect_save();
     d.save_runs();
     listener.cleanup();
     Ok(())
@@ -330,6 +362,7 @@ impl Daemon {
             dirty: true,
             history_rev: 0,
             base_env: BTreeMap::new(),
+            insp: Insp::default(),
         }
     }
 
@@ -367,6 +400,22 @@ impl Daemon {
                         }
                     }
                 }
+                Msg::InspectStatus(r) => self.inspect_status(r),
+                Msg::InspectSignals(dir, sig) => {
+                    self.insp.cache.insert(dir.to_string_lossy().to_string(), sig);
+                    self.insp.cache_dirty = true;
+                    self.inspect_assemble();
+                }
+                Msg::InspectHistoryDone => {
+                    self.insp.history_busy = false;
+                    self.inspect_save();
+                    self.inspect_history();
+                    self.inspect_assemble();
+                }
+                Msg::InspectActed(dir) => {
+                    self.insp.cache.remove(&dir.to_string_lossy().to_string());
+                    self.inspect_refresh(true);
+                }
                 Msg::Wake => {}
             }
             self.flush();
@@ -382,7 +431,13 @@ impl Daemon {
             return;
         }
         self.fp = fp;
+        let inspection_changed = self.cfg.inspection != cfg.inspection;
         self.cfg = cfg;
+        if inspection_changed {
+            let cache = std::mem::take(&mut self.insp.cache);
+            self.insp = Insp { cache, ..Default::default() };
+            self.insp.loaded = !self.insp.cache.is_empty();
+        }
         let found = manifest::discover(&self.cfg);
         let mut tasks = found.tasks;
         // A task that disappears while it runs stays until it finishes.
@@ -395,6 +450,10 @@ impl Daemon {
         self.tasks = tasks;
         self.problems = cfg_problems;
         self.problems.extend(found.problems);
+        if let Some(i) = &self.cfg.inspection {
+            let file = paths::tilde(&paths::config_file());
+            self.problems.extend(i.problems().into_iter().map(|message| Problem { file: file.clone(), message }));
+        }
         for t in &self.tasks {
             self.rt.entry(t.id.clone()).or_insert_with(|| TaskRt { since: now(), ..Default::default() });
         }
@@ -480,6 +539,9 @@ impl Daemon {
                 self.board_visible = visible;
                 if visible {
                     self.refresh_git(false);
+                    if self.insp.status_at.is_none_or(|t| t.elapsed() > Duration::from_secs(30)) {
+                        self.inspect_refresh(false);
+                    }
                 }
                 Reply::ok()
             }
@@ -509,7 +571,50 @@ impl Daemon {
                 self.dirty = true;
                 Reply::ok()
             }
-            Request::Open { what, id, file, line, tool } => self.open(what, id, file, line, tool),
+            Request::Open { what, id, file, line, tool, dir } => self.open(what, id, file, line, tool, dir),
+            Request::Inspection => match self.inspection_reply(None) {
+                Ok(d) => Reply { ok: true, inspection: Some(Box::new(d)), ..Default::default() },
+                Err(e) => Reply::err(e),
+            },
+            Request::Inspect { dir } => match self.inspection_reply(Some(&dir)) {
+                Ok(d) => Reply { ok: true, inspection: Some(Box::new(d)), ..Default::default() },
+                Err(e) => Reply::err(e),
+            },
+            Request::InspectRefresh => {
+                if self.cfg.inspection.is_none() {
+                    Reply::err(INSPECTION_OFF)
+                } else {
+                    // Forget the history so every repo is read again.
+                    for sig in self.insp.cache.values_mut() {
+                        sig.head.clear();
+                    }
+                    self.inspect_refresh(true);
+                    Reply::msg("Reading every repo again")
+                }
+            }
+            Request::InspectAct { dir, action } => {
+                let known = self.insp.data.as_ref().is_some_and(|d| d.repos.iter().any(|r| r.dir == dir));
+                if self.cfg.inspection.is_none() || !known {
+                    let r = Reply::err(if self.cfg.inspection.is_none() {
+                        INSPECTION_OFF.to_string()
+                    } else {
+                        format!("{dir} is not a repo on the Inspection tab")
+                    });
+                    write_line(&mut stream, &serde_json::to_string(&r).unwrap_or_default());
+                    return;
+                }
+                let tx = self.tx.clone();
+                std::thread::spawn(move || {
+                    let path = PathBuf::from(&dir);
+                    let r = match crate::inspect::act(&path, action) {
+                        Ok(m) => Reply::msg(m),
+                        Err(e) => Reply::err(e),
+                    };
+                    write_line(&mut stream, &serde_json::to_string(&r).unwrap_or_default());
+                    let _ = tx.send(Msg::InspectActed(path));
+                });
+                return;
+            }
             Request::Progress { run, index, total, name, attempt } => {
                 if let Some(rec) = self.runs.get(&run) {
                     let task = rec.task.clone();
@@ -1335,6 +1440,12 @@ impl Daemon {
         if self.board_visible && self.git_at.is_none_or(|g| g.elapsed() > Duration::from_secs(30)) {
             self.refresh_git(false);
         }
+        if self.cfg.inspection.is_some() {
+            let every = Duration::from_secs(if self.board_visible { 60 } else { 600 });
+            if self.insp.status_at.is_none_or(|t| t.elapsed() >= every) {
+                self.inspect_refresh(false);
+            }
+        }
         if self.history_dirty && self.ticks.is_multiple_of(2) {
             self.history.save();
             self.history_dirty = false;
@@ -1555,6 +1666,7 @@ impl Daemon {
             has_terminal: !self.cfg.terminal.is_empty(),
             history_rev: self.history_rev,
             machine: self.machine.clone(),
+            inspection: self.cfg.inspection.as_ref().map(|_| self.insp.data.as_ref().map(|d| d.counts(self.insp.rev)).unwrap_or_default()),
             now: t,
         }
     }
@@ -1645,9 +1757,21 @@ impl Daemon {
         yard_core::hypr::binds().into_iter().map(|(k, d)| ShelfItem { name: k, desc: d, cmd: None }).collect()
     }
 
-    fn open(&mut self, what: OpenWhat, id: Option<String>, file: Option<String>, line: Option<u32>, tool: Option<String>) -> Reply {
+    fn open(
+        &mut self,
+        what: OpenWhat,
+        id: Option<String>,
+        file: Option<String>,
+        line: Option<u32>,
+        tool: Option<String>,
+        dir: Option<String>,
+    ) -> Reply {
         let def = id.as_deref().and_then(|i| self.def(i)).cloned();
-        let dir = def.as_ref().map(|d| d.dir.clone()).unwrap_or_else(paths::home);
+        let dir = match (&def, dir) {
+            (Some(d), _) => d.dir.clone(),
+            (None, Some(d)) => paths::expand(&d),
+            (None, None) => paths::home(),
+        };
         let term = self.cfg.terminal.clone();
         let spawn = |argv: Vec<String>, cwd: &Path| -> Reply {
             if argv.is_empty() {
@@ -1720,6 +1844,145 @@ impl Daemon {
                 spawn(argv, &paths::home())
             }
         }
+    }
+
+    // ----------------------------------------------------------- inspection
+
+    /// Starts a status sweep over every repo, unless one is running.
+    fn inspect_refresh(&mut self, force: bool) {
+        let Some(cfg) = self.cfg.inspection.clone() else { return };
+        if self.insp.status_busy && !force {
+            return;
+        }
+        if !self.insp.loaded {
+            self.insp.loaded = true;
+            self.insp.cache =
+                std::fs::read_to_string(inspection_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        }
+        self.insp.status_busy = true;
+        self.insp.status_at = Some(Instant::now());
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            crate::inspect::lower_priority();
+            let res: Vec<(PathBuf, Option<Status>)> = crate::inspect::repo_dirs(&cfg)
+                .into_iter()
+                .map(|d| {
+                    let s = crate::inspect::status(&d);
+                    (d, s)
+                })
+                .collect();
+            let _ = tx.send(Msg::InspectStatus(res));
+        });
+    }
+
+    fn inspect_status(&mut self, res: Vec<(PathBuf, Option<Status>)>) {
+        self.insp.status_busy = false;
+        self.insp.status = res.into_iter().filter_map(|(d, s)| s.map(|s| (d, s))).collect();
+        let keep: Vec<String> = self.insp.status.keys().map(|d| d.to_string_lossy().to_string()).collect();
+        let before = self.insp.cache.len();
+        self.insp.cache.retain(|k, _| keep.contains(k));
+        self.insp.cache_dirty |= before != self.insp.cache.len();
+        self.inspect_history();
+        self.inspect_assemble();
+    }
+
+    /// Reads history for every repo whose HEAD moved or whose read is a day
+    /// old, one repo at a time on a low-priority thread.
+    fn inspect_history(&mut self) {
+        let Some(cfg) = self.cfg.inspection.clone() else { return };
+        if self.insp.history_busy {
+            return;
+        }
+        let t = now();
+        let due: Vec<(PathBuf, String, Status)> = self
+            .insp
+            .status
+            .iter()
+            .filter_map(|(d, s)| {
+                let head = s.head.clone()?;
+                let fresh =
+                    self.insp.cache.get(&d.to_string_lossy().to_string()).is_some_and(|c| c.head == head && t - c.computed_at < 86400.0);
+                (!fresh).then(|| (d.clone(), head, s.clone()))
+            })
+            .collect();
+        if due.is_empty() {
+            return;
+        }
+        self.insp.queue = due.iter().map(|(d, _, _)| d.clone()).collect();
+        self.insp.history_busy = true;
+        self.dirty = true;
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            crate::inspect::lower_priority();
+            for (dir, head, status) in due {
+                let sig = crate::inspect::history(&dir, &head, &status, &cfg, now());
+                if tx.send(Msg::InspectSignals(dir, sig)).is_err() {
+                    return;
+                }
+            }
+            let _ = tx.send(Msg::InspectHistoryDone);
+        });
+    }
+
+    /// Rebuilds the rows; bumps the revision only when something changed.
+    fn inspect_assemble(&mut self) {
+        let Some(cfg) = self.cfg.inspection.as_ref() else { return };
+        let t = now();
+        let repos = self
+            .insp
+            .status
+            .iter()
+            .map(|(d, s)| {
+                let sig = self.insp.cache.get(&d.to_string_lossy().to_string()).cloned();
+                yard_core::inspect::evaluate(d, s.clone(), sig, cfg, t)
+            })
+            .collect();
+        let scanning = self.insp.history_busy || self.insp.status_busy;
+        let data = yard_core::inspect::assemble(repos, scanning, t);
+        let changed =
+            self.insp.data.as_ref().is_none_or(|old| old.repos != data.repos || old.tags != data.tags || old.scanning != data.scanning);
+        if changed {
+            self.insp.rev += 1;
+            self.dirty = true;
+        }
+        self.insp.data = Some(data);
+    }
+
+    fn inspect_save(&mut self) {
+        if !self.insp.cache_dirty {
+            return;
+        }
+        self.insp.cache_dirty = false;
+        let path = inspection_file();
+        if let Some(d) = path.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let tmp = path.with_extension("json.tmp");
+        if let Ok(text) = serde_json::to_string(&self.insp.cache) {
+            if std::fs::write(&tmp, text).is_ok() {
+                let _ = std::fs::rename(&tmp, &path);
+            }
+        }
+    }
+
+    /// Every row, or the one repo `which` names (a directory or a name).
+    fn inspection_reply(&mut self, which: Option<&str>) -> Result<InspectionData, String> {
+        if self.cfg.inspection.is_none() {
+            return Err(INSPECTION_OFF.into());
+        }
+        let Some(data) = self.insp.data.clone() else {
+            self.inspect_refresh(false);
+            return Ok(InspectionData { scanning: true, ..Default::default() });
+        };
+        let Some(w) = which else { return Ok(data) };
+        let raw = paths::expand(w);
+        let canon = raw.canonicalize().unwrap_or(raw.clone());
+        let (raw, canon) = (raw.to_string_lossy().to_string(), canon.to_string_lossy().to_string());
+        let found: Vec<_> = data.repos.iter().filter(|r| r.dir == raw || r.dir == canon || r.name == w).cloned().collect();
+        if found.is_empty() {
+            return Err(format!("{w} is not a repo on the Inspection tab"));
+        }
+        Ok(yard_core::inspect::assemble(found, data.scanning, data.scanned_at))
     }
 
     // ----------------------------------------------------------- persistence

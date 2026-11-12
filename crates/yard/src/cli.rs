@@ -529,6 +529,173 @@ pub fn history(rest: &[String]) -> Result<i32> {
     Ok(0)
 }
 
+fn sparkline(values: &[u32]) -> String {
+    let max = values.iter().copied().max().unwrap_or(0).max(1) as f64;
+    let bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    values.iter().map(|v| if *v == 0 { ' ' } else { bars[((*v as f64 / max) * 7.0).round() as usize] }).collect()
+}
+
+fn lamp_dot(p: &Paint, lamp: yard_core::inspect::Lamp) -> String {
+    use yard_core::inspect::Lamp;
+    match lamp {
+        Lamp::Act => p.c("31", "●"),
+        Lamp::Tidy => p.c("33", "●"),
+        Lamp::Clear => p.c("32", "●"),
+        Lamp::Quiet => p.c("90", "●"),
+    }
+}
+
+/// `yard inspect`: the Inspection tab in the terminal.
+pub fn inspect(rest: &[String]) -> Result<i32> {
+    use yard_core::inspect::{ActionKind, InspectionData, Severity};
+    let mut json = false;
+    let mut tags: Vec<String> = vec![];
+    let mut which: Option<String> = None;
+    let mut action: Option<ActionKind> = None;
+    let mut it = rest.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--json" => json = true,
+            "--refresh" => {
+                let r = send(Request::InspectRefresh)?;
+                print_reply(&r);
+                return Ok(0);
+            }
+            "--tag" | "-t" => tags.push(it.next().ok_or_else(|| anyhow!("--tag needs a tag"))?.clone()),
+            "--remove-worktrees" => action = Some(ActionKind::RemoveWorktrees),
+            "--delete-branches" => action = Some(ActionKind::DeleteBranches),
+            s if s.starts_with('-') => bail!("unknown option \"{s}\""),
+            s if which.is_none() => which = Some(s.to_string()),
+            s => bail!("unexpected argument \"{s}\""),
+        }
+    }
+    let fetch = |which: &Option<String>| -> Result<InspectionData> {
+        let req = match which {
+            Some(w) => Request::Inspect { dir: w.clone() },
+            None => Request::Inspection,
+        };
+        let r = send(req)?;
+        r.inspection.map(|b| *b).ok_or_else(|| anyhow!("the daemon sent no inspection"))
+    };
+    // The first read after the daemon starts takes a few seconds.
+    let start = Instant::now();
+    let mut d = fetch(&which)?;
+    while d.repos.is_empty() && d.scanning && start.elapsed() < Duration::from_secs(30) {
+        std::thread::sleep(Duration::from_millis(400));
+        d = fetch(&which)?;
+    }
+    if let Some(kind) = action {
+        let Some(repo) = d.repos.first().filter(|_| which.is_some()) else { bail!("name one repo to act on") };
+        let r = send(Request::InspectAct { dir: repo.dir.clone(), action: kind })?;
+        print_reply(&r);
+        return Ok(0);
+    }
+    d.repos.retain(|r| tags.iter().all(|t| r.tags.iter().any(|g| g.eq_ignore_ascii_case(t))));
+    if json {
+        println!("{}", serde_json::to_string_pretty(&d)?);
+        return Ok(0);
+    }
+    let p = Paint::new();
+    let now = yard_core::model::now();
+    if which.is_some() {
+        for r in &d.repos {
+            println!("{} {}  {}", lamp_dot(&p, r.lamp), p.c("1", &r.name), p.c("90", &r.dir));
+            println!("  {}", r.sub);
+            if !r.tags.is_empty() {
+                println!("  {}", p.c("35", &r.tags.iter().map(|t| format!("#{t}")).collect::<Vec<_>>().join(" ")));
+            }
+            for f in &r.findings {
+                let code = match f.severity {
+                    Severity::Act => "31",
+                    Severity::Tidy => "33",
+                    _ => "90",
+                };
+                println!("  {} {}", p.c(code, &format!("{:<5}", f.severity.as_str())), f.text);
+            }
+            for w in &r.status.worktrees {
+                let state = format!(
+                    "{}{}{}",
+                    w.branch.as_deref().unwrap_or("detached"),
+                    if w.merged { ", merged" } else { "" },
+                    if w.dirty > 0 { format!(", {} uncommitted", w.dirty) } else { ", clean".into() }
+                );
+                println!("  {} {} ({state})", p.c("90", "worktree"), w.path);
+            }
+            if let Some(sig) = &r.signals {
+                if !sig.hotspots.is_empty() {
+                    println!("\n  {}", p.c("1", "hotspots · changes · fixes"));
+                    for h in &sig.hotspots {
+                        println!("  {:>5} {:>5}  {}", h.changes, p.c("33", &format!("{:>5}", h.fixes)), h.file);
+                    }
+                }
+                let vals: Vec<u32> = sig.months.iter().map(|m| m.commits).collect();
+                let first = sig.months.first().map(|m| m.label.as_str()).unwrap_or("");
+                println!(
+                    "\n  {} {}  {}",
+                    p.c("1", "rhythm"),
+                    sparkline(&vals),
+                    p.c("90", &format!("since {first}, {} in the window", sig.commits))
+                );
+                let humans: Vec<_> = sig.authors.iter().filter(|a| !a.bot).collect();
+                if humans.len() > 1 || sig.authors.iter().any(|a| !a.me && r.mine) {
+                    let total: u32 = sig.authors.iter().map(|a| a.commits).sum::<u32>().max(1);
+                    println!("\n  {}", p.c("1", "people"));
+                    for a in sig.authors.iter().take(8) {
+                        let mark = if a.bot && !a.name.ends_with("[bot]") {
+                            " [bot]"
+                        } else if a.me {
+                            " (you)"
+                        } else {
+                            ""
+                        };
+                        println!(
+                            "  {:>5}  {:>3}%  {}{}  {}",
+                            a.commits,
+                            a.commits * 100 / total,
+                            a.name,
+                            mark,
+                            p.c("90", &format!("{} in 6 months, last {}", a.recent, ago(now - a.last)))
+                        );
+                    }
+                }
+                if !sig.firefights.is_empty() {
+                    println!("\n  {} {}", p.c("1", "firefighting"), sig.firefights.len());
+                    for f in sig.firefights.iter().take(5) {
+                        println!("  {}", p.c("90", f));
+                    }
+                }
+                if !sig.output.is_empty() {
+                    let parts: Vec<String> = sig.output.iter().map(|o| format!("{} {}", o.dir, yard_core::size::human(o.bytes))).collect();
+                    println!("\n  {} {}", p.c("1", "build output"), parts.join(" · "));
+                }
+            }
+            for a in &r.actions {
+                let flag = match a.kind {
+                    ActionKind::RemoveWorktrees => "--remove-worktrees",
+                    ActionKind::DeleteBranches => "--delete-branches",
+                };
+                println!("\n  {} yard inspect {} {flag}", p.c("36", &a.label), r.name);
+            }
+        }
+        return Ok(0);
+    }
+    let mut group = None;
+    for r in &d.repos {
+        if group.as_ref() != Some(&r.group) {
+            group = Some(r.group.clone());
+            if !r.group.is_empty() {
+                println!("{}", p.c("1", &r.group));
+            }
+        }
+        println!("  {} {:<30} {}  {}", lamp_dot(&p, r.lamp), r.name, r.headline, p.c("90", &format!("· {}", r.sub)));
+    }
+    let act = d.repos.iter().filter(|r| r.lamp == yard_core::inspect::Lamp::Act).count();
+    let tidy = d.repos.iter().filter(|r| r.lamp == yard_core::inspect::Lamp::Tidy).count();
+    let more = if d.scanning { " · still reading history" } else { "" };
+    println!("\n{} repos · {act} to act on · {tidy} to tidy{more}", d.repos.len());
+    Ok(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -556,6 +723,11 @@ mod tests {
         assert!(p.is_empty(), "{p:?}");
         assert_eq!(tasks.len(), 2);
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn sparkline_scales() {
+        assert_eq!(sparkline(&[0, 1, 8]), " ▂█");
     }
 
     #[test]
