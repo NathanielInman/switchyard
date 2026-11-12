@@ -346,6 +346,11 @@ def board(pen, state="grid", tiles=None, mainline="android"):
     return h
 
 
+# ---- end of the panel ----
+# dot-files' bar hero (docs/bar/apps.py) runs everything above this line
+# to draw the panel in its own tour, so keep the panel's code above it and
+# the story below it.
+
 # ================================================================ the scene
 
 P = Pen()
