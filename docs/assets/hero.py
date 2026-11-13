@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Writes docs/assets/hero.svg: the README's animated hero.
 
-A 14 second loop on the same desktop as the siblings' heroes, under the
-floating Platform bar. The signal says two things are building. A click
+A 14 second loop under the floating Platform bar. The signal says two things are building. A click
 springs the board out of it: storefront finishes on the main line and
 android takes its place, ledger-api fails, a click on its tile opens the log
 on the TypeScript error (the board grows to fit it), and the error is copied.
@@ -26,7 +25,7 @@ W, H = 1200, 660
 T = 14  # loop seconds
 STILL = 6.2  # the moment the reduced-motion still shows
 
-# Nord, matching the Platform waybar and the siblings' heroes.
+# Nord, matching the Platform waybar.
 BG0, BG1 = "#14171c", "#0d0f12"
 PILL, PILL_LINE = "#24262a", "#3a404d"  # rgba(40,42,46,.84) and rgba(76,86,106,.55) over the wallpaper
 HOVER, WS_ACTIVE = "rgba(129,161,193,.18)", "rgba(129,161,193,.26)"
@@ -87,9 +86,10 @@ def fit(s, size, room):
 #
 # Everything from here to "the scene" draws Switchyard's board in its own
 # coordinates: (0, 0) is the panel's top-left, sizes are the GTK board's at
-# its default 13px monospace. The board is as wide as its tab row needs,
-# since the panel never gets narrower than its content. Its text needs
-# `white-space: pre` (or xml:space="preserve") so double spaces survive.
+# its default 13px monospace. The board is `board.width` wide, or wider
+# when its tab row needs it, since the panel never gets narrower than its
+# content. Its text needs `white-space: pre` (or xml:space="preserve") so
+# double spaces survive.
 
 TABS = [("Projects", 8), ("Deploys", 4), ("Desk", 1), ("History", 0), ("Inspection", 2), ("Shelf", 0)]
 SEARCH_W = 168
@@ -100,9 +100,9 @@ def tab_width(name, n):
     return 20 + len(name) * cw(13) + (5 + len(str(n)) * cw(13) if n else 0)
 
 
-LINK_W = 20 + cw(9) + 5 + 10 * cw(13) + 5 + cw(13)  # "● Roundhouse ↗"
-HEADER_W = sum(tab_width(*t) for t in TABS) + 2 * len(TABS) + LINK_W + 8 + SEARCH_W
-BW = round(HEADER_W + 26)  # 12px padding and a 1px border each side
+HEADER_W = sum(tab_width(*t) for t in TABS) + 2 * len(TABS) + 8 + SEARCH_W
+WIDTH = 828  # board.width
+BW = max(WIDTH, round(HEADER_W + 26))  # 12px padding and a 1px border each side
 
 ML_Y = 52  # the main line strip, below the 30px header and 10px spacing
 GRID_Y = 94  # the stack: tiles, or the log
@@ -132,7 +132,6 @@ def action_x():
 # Where a story can click, in board coordinates. Tiles in grid mode;
 # "copy" and "back" in log mode (heights BH_GRID and BH_LOG).
 BOARD_SPOTS = {
-    "roundhouse": (13 + sum(tab_width(*t) + 2 for t in TABS) + LINK_W / 2, 27),
     "tab:Inspection": (13 + sum(tab_width(*t) + 2 for t in TABS[:4]) + tab_width(*TABS[4]) / 2, 27),
     "filter": (BW - 13 - SEARCH_W / 2, 27),
     "copy": (action_x()[0][0] + action_x()[0][1] / 2, LOG_ACTIONS_Y + 12),
@@ -150,10 +149,9 @@ def board_panel(pen, h):
     pen.add(f'<rect x=".5" y=".5" width="{BW - 1}" height="{h - 1}" rx="16" fill="{PANEL}" stroke="{PANEL_LINE}"/>')
 
 
-def board_header(pen, active="Projects", roundhouse=GO):
-    """The tab row: configured tabs, History, Inspection, Shelf, then the
-    link to Roundhouse's drawer dotted with its lamp; the filter on the
-    right. `roundhouse` is the lamp's color (None while it isn't running)."""
+def board_header(pen, active="Projects"):
+    """The tab row: configured tabs, History, Inspection and Shelf, with the
+    filter on the right."""
     x = 13
     for name, n in TABS:
         w = tab_width(name, n)
@@ -164,10 +162,6 @@ def board_header(pen, active="Projects", roundhouse=GO):
         if n:
             pen.text(x + 10 + len(name) * cw(13) + 5, 31.5, str(n), 13, DIM)
         x += w + 2
-    if roundhouse:
-        pen.text(x + 10, 30.5, "●", 9, roundhouse)
-        pen.text(x + 10 + cw(9) + 5, 31.5, "Roundhouse", 13, DIM)
-        pen.text(x + 10 + cw(9) + 10 + 10 * cw(13), 31.5, "↗", 13, DIM)
     sx = BW - 13 - SEARCH_W
     pen.add(f'<rect x="{sx:.1f}" y="13.5" width="{SEARCH_W}" height="27" rx="8" fill="none" stroke="{PANEL_LINE}"/>')
     pen.text(sx + 10, 31.5, "/  to filter", 13, DIM)
@@ -419,8 +413,8 @@ text {{ white-space: pre; }}
 
 ALT = (
     "A floating waybar of frosted pills whose Switchyard signal is amber with a 2: two builds are going. A click "
-    "springs the board out of it: Projects, Deploys, Desk, History, Inspection and Shelf tabs, a link to Roundhouse "
-    "dotted with its lamp, the main line with its memory gauge, and eight tiles. storefront finishes on the main line "
+    "springs the board out of it: Projects, Deploys, Desk, History, Inspection and Shelf tabs, the main line with its "
+    "memory gauge, and eight tiles. storefront finishes on the main line "
     "and android takes its place, then ledger-api fails and the signal turns red. A click on its tile opens the log "
     "on the TypeScript error, and y copies it with context. The board closes with the signal still red until a "
     "right-click acknowledges the failure."
@@ -474,7 +468,7 @@ group([(FAIL + 0.2, RESET)])
 add(f'<path d="M{sx:.1f},{sy} q3.25,-3.5 6.5,0 {waves}" fill="none" stroke="{STOP}" stroke-width="1.5"/>')
 add("</g>")
 
-# A browser behind it, as on the siblings' desktops.
+# A browser behind it.
 window(216, 330, 440, 250)
 for i, w in enumerate([300, 220, 340, 180, 260, 140]):
     add(f'<rect x="{238 + (i % 3) * 12}" y="{372 + i * 26}" width="{w}" height="9" rx="4" fill="#3b4252" opacity=".8"/>')
@@ -502,10 +496,6 @@ def hover(x, w, spans):
     group(spans, 0.1, False)
     add(f'<rect x="{x:.1f}" y="{BAR_Y + 4}" width="{w:.1f}" height="{BAR_H - 8}" rx="7" fill="{HOVER}"/>')
     add("</g>")
-
-
-def g_dot(cx, c, r=6):
-    add(f'<circle cx="{cx:.1f}" cy="{CY}" r="{r}" fill="{c}"/>')
 
 
 def g_ring(cx, c):
@@ -618,12 +608,12 @@ ax += AUDIO_MOD
 g_mouse(ax + 8 + GLYPH / 2, BAR_DIM)
 text(ax + 8 + GLYPH + BC, MID, "80%", BS, BAR_DIM)
 
-# The lamps pill: roundhouse, switchyard, broker, vpn, notifications. The
+# The lamps pill: switchyard, broker, vpn, notifications. The
 # signal shows a count while more than one task builds, which widens its
 # module and pushes everything to its left.
 COUNT_W = 2 * BC
 lamps_r = audio_x - 6
-lamps_w = 2 + 8 + 5 * MOD  # without the count
+lamps_w = 2 + 8 + 4 * MOD  # without the count
 lamps_x = lamps_r - lamps_w
 WIDE = [(0, FAIL), (RESET, T)]  # "2" beside the signal
 narrow_at_still = not at(WIDE, STILL)
@@ -631,8 +621,7 @@ shift = anim("transform", [(0, f"translateX({-COUNT_W:.1f}px)"), (FAIL, f"transl
                            (RESET, "none"), (RESET + 0.01, f"translateX({-COUNT_W:.1f}px)"), (T, f"translateX({-COUNT_W:.1f}px)")])
 shift_still = "" if narrow_at_still else f' transform="translate({-COUNT_W:.1f},0)"'
 
-lx = lamps_x + 5  # the first module's left edge (narrow)
-sig_x = lx + MOD  # the signal module's left edge (narrow)
+sig_x = lamps_x + 5  # the signal module's left edge (narrow)
 broker_x = sig_x + MOD
 # The pill grows from its left: a cap that slides, the fixed body, and a
 # seam filler while it is wide.
@@ -649,9 +638,6 @@ add("</g>")
 hover(sig_x - COUNT_W, MOD + COUNT_W, [(CLICK_SIG - 0.15, 2.4)])
 hover(sig_x, MOD, [(ACK - 0.15, ACK + 0.6)])
 
-add(f'<g {style(shift)}{shift_still}>')
-g_dot(lx + MOD / 2, GO)  # Roundhouse, calm
-add("</g>")
 # Switchyard's signal. Amber "2" while two build, red alone once ledger-api
 # fails, amber again once the failure is acknowledged.
 SIG = [
