@@ -81,14 +81,11 @@ pub struct MainlineConfig {
     pub mem: String,
     pub idle_cpu: bool,
     pub nice: i32,
-    /// Hold the next heavy build while a running Roundhouse says the machine
-    /// needs acting on. No effect when Roundhouse is not running.
-    pub respect_roundhouse: bool,
 }
 
 impl Default for MainlineConfig {
     fn default() -> Self {
-        MainlineConfig { min_free: "8G".into(), mem: "16G".into(), idle_cpu: true, nice: 19, respect_roundhouse: true }
+        MainlineConfig { min_free: "8G".into(), mem: "16G".into(), idle_cpu: true, nice: 19 }
     }
 }
 

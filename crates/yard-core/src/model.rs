@@ -231,50 +231,11 @@ pub struct Snapshot {
     /// Bumps whenever a run finishes, so a board knows to refresh history.
     #[serde(default)]
     pub history_rev: u64,
-    /// The machine as a running Roundhouse sees it; `None` when Roundhouse
-    /// is not running.
-    #[serde(default)]
-    pub machine: Option<MachineView>,
     /// Row counts for the Inspection tab; `None` when it is not configured.
     #[serde(default)]
     pub inspection: Option<crate::inspect::InspectionCounts>,
     /// Unix seconds on the daemon's clock, so clients can correct for skew.
     pub now: f64,
-}
-
-/// Roundhouse's lamp: `calm`, `heads-up` or `act`, with its reasons.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-pub struct MachineView {
-    pub level: String,
-    pub reasons: Vec<MachineReason>,
-    /// Roundhouse's own word on whether heavy work should wait (`lamp.hold`):
-    /// a recording session, or an act reason more work would make worse.
-    #[serde(default)]
-    pub hold: Option<String>,
-    /// Roundhouse sent `lamp.hold` (0.3 and later). An older one does not,
-    /// and then any act reason holds.
-    #[serde(default)]
-    pub sends_hold: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-pub struct MachineReason {
-    pub level: String,
-    pub text: String,
-}
-
-impl MachineView {
-    /// Why Roundhouse says heavy work should wait: its `lamp.hold`, or, from
-    /// a Roundhouse too old to send one, the first reason that needs acting on.
-    pub fn hold_reason(&self) -> Option<&str> {
-        if self.sends_hold {
-            return self.hold.as_deref();
-        }
-        if self.level != "act" {
-            return None;
-        }
-        self.reasons.iter().find(|r| r.level == "act").map(|r| r.text.as_str()).or(Some("the machine needs attention"))
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

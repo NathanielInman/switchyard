@@ -163,16 +163,6 @@ below `mainline.min_free`. Each heavy build gets `MemoryMax` from the task or
 `mainline.mem`, `MemorySwapMax=0`, `CPUWeight=idle` and nice 19. Non-heavy
 tasks never wait.
 
-When a sibling [Roundhouse](https://github.com/NathanielInman/roundhouse) is
-running and says heavy work should wait (`lamp.hold`: memory stalling, a
-filesystem past 95%, or a recording session), the head of the queue also
-waits, with the reason as its message: "held: Roundhouse says /data is 96%
-full". A hot CPU or GPU does not hold builds, since the build is what heats
-it. A Roundhouse too old to send `lamp.hold` holds on any `act` reason. The daemon asks Roundhouse
-every 5 seconds, every second while a build is held, and starts the build on
-the first calm answer. `mainline.respect_roundhouse = false` turns this off;
-without Roundhouse it does nothing. See [Siblings](#siblings).
-
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.
@@ -214,31 +204,6 @@ directory, and a second launch (a taskbar pin, the Start menu) asks the
 daemon to show the running one's board, then exits. On Windows the exe
 carries the signal icon and a version resource whose description is
 "Switchyard", and `yard setup` adds a Start menu shortcut by that name.
-
-## Siblings
-
-Switchyard and [Roundhouse](https://github.com/NathanielInman/roundhouse) (a
-system drawer behind one lamp in the bar) know about each other and need
-nothing from each other.
-
-1. **Neither requires the other.** Every sibling feature is off when the
-   sibling is absent. No error, no log line, no wait longer than a 300 ms
-   connect deadline.
-2. **Discovery is the socket.** Roundhouse is present when
-   `$ROUNDHOUSE_RUNTIME_DIR/rh.sock` (else `$XDG_RUNTIME_DIR/roundhouse/rh.sock`)
-   answers.
-3. **No shared crates on the wire.** Each side reads the other's JSON loosely,
-   unknown fields ignored, so they upgrade in any order.
-
-What Switchyard uses from Roundhouse:
-
-| Request | Used for |
-|---|---|
-| `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level`, `lamp.reasons[].level`/`text` and `lamp.hold`: holds the main line while `hold` is set (or, from a Roundhouse without `hold`, on `act`), shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
-
-What Roundhouse uses from Switchyard: its `snapshot` (aggregate phase, main
-line, queue, task labels, and the queue head's `message` while it waits) for
-a one-line build status on its Machine tab.
 
 ## History
 
@@ -457,7 +422,6 @@ editor = ["kitty", "--class", "float-term", "-e", "nvim", "+{line}", "{file}"]
 
 [mainline]
 min_free = "16G"      # MemAvailable required before a heavy build starts
-respect_roundhouse = true  # hold heavy builds while a running Roundhouse says act
 mem = "16G"           # default MemoryMax for heavy builds
 idle_cpu = true       # CPUWeight=idle for heavy builds
 nice = 19

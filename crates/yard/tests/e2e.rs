@@ -93,9 +93,7 @@ run = "{s60}"
         let mut c = Command::new(YARD);
         c.env("SWITCHYARD_CONFIG_DIR", self.root.join("config"))
             .env("SWITCHYARD_STATE_DIR", self.root.join("state"))
-            .env("SWITCHYARD_RUNTIME_DIR", self.root.join("run"))
-            // Never consult a Roundhouse running on the test machine.
-            .env("ROUNDHOUSE_RUNTIME_DIR", self.root.join("roundhouse"));
+            .env("SWITCHYARD_RUNTIME_DIR", self.root.join("run"));
         c
     }
 
@@ -211,56 +209,6 @@ fn tasks_run_fail_queue_and_survive_a_restart() {
     assert!(bad["error"]["text"].as_str().unwrap_or("").contains("the build broke"));
     assert!(std::path::Path::new(bad["log"].as_str().unwrap()).exists());
     assert!(!h["days"].as_array().unwrap().is_empty());
-}
-
-/// A stand-in Roundhouse that answers snapshot requests with a lamp level
-/// the test can change.
-#[cfg(unix)]
-fn fake_roundhouse(dir: &Path, level: std::sync::Arc<std::sync::Mutex<&'static str>>) {
-    use std::io::{BufRead, BufReader, Write};
-    std::fs::create_dir_all(dir).unwrap();
-    let listener = std::os::unix::net::UnixListener::bind(dir.join("rh.sock")).unwrap();
-    std::thread::spawn(move || {
-        for s in listener.incoming() {
-            let Ok(mut s) = s else { continue };
-            let mut line = String::new();
-            let _ = BufReader::new(s.try_clone().unwrap()).read_line(&mut line);
-            let lvl = *level.lock().unwrap();
-            let reasons = if lvl == "act" { r#"[{"level":"act","text":"/data is 96% full","tab":"storage"}]"# } else { "[]" };
-            let _ = writeln!(s, r#"{{"ok":true,"snapshot":{{"lamp":{{"level":"{lvl}","reasons":{reasons}}},"now":1}}}}"#);
-        }
-    });
-}
-
-#[cfg(unix)]
-#[test]
-fn heavy_builds_wait_while_roundhouse_says_act() {
-    let sb = Sandbox::new("sibling");
-    let level = std::sync::Arc::new(std::sync::Mutex::new("act"));
-    fake_roundhouse(&sb.root.join("roundhouse"), level.clone());
-
-    // The daemon looks for Roundhouse every few seconds; wait until it has.
-    let start = Instant::now();
-    loop {
-        let snap: Value = serde_json::from_str(&sb.request(r#"{"cmd":"snapshot"}"#).unwrap_or_default()).unwrap_or(Value::Null);
-        if snap["snapshot"]["machine"]["level"] == "act" {
-            break;
-        }
-        assert!(start.elapsed() < Duration::from_secs(15), "never saw Roundhouse: {snap}");
-        std::thread::sleep(Duration::from_millis(200));
-    }
-
-    sb.run("heavy-a");
-    let t = sb.wait_for("heavy-a", &["waiting"], 15);
-    assert!(t["message"].as_str().unwrap_or("").contains("held: Roundhouse says /data is 96% full"), "{t}");
-
-    // Light tasks never wait on the main line.
-    sb.run("good");
-    sb.wait_for("good", &["ok", "idle"], 30);
-
-    // When the lamp calms down, the build starts by itself.
-    *level.lock().unwrap() = "calm";
-    sb.wait_for("heavy-a", &["building", "ok", "idle"], 15);
 }
 
 fn git(dir: &Path, args: &[&str]) -> bool {
