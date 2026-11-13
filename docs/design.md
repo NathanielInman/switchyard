@@ -229,29 +229,16 @@ nothing from each other.
    answers.
 3. **No shared crates on the wire.** Each side reads the other's JSON loosely,
    unknown fields ignored, so they upgrade in any order.
-4. **Handoff keeps the anchor.** A `show` with the same `anchor` opens the
-   other panel from the same icon.
-5. **One panel at a time.** Whichever panel opens sends `{"cmd":"hide"}` to
-   the other, so clicking the other icon in the bar never leaves both open.
 
 What Switchyard uses from Roundhouse:
 
 | Request | Used for |
 |---|---|
 | `{"cmd":"snapshot"}` on `rh.sock` | `lamp.level`, `lamp.reasons[].level`/`text` and `lamp.hold`: holds the main line while `hold` is set (or, from a Roundhouse without `hold`, on `act`), shows in `yard doctor`, and is passed on as `machine` in Switchyard's own snapshot. |
-| `{"cmd":"hide"}` on `rh.sock` | Sent by the board when it opens, so Roundhouse's drawer closes. |
-| `{"cmd":"show","anchor":{...}}` on `rh.sock` | The board's Roundhouse link: the board closes and the drawer opens from the anchor the board opened with. |
-
-The board's tab row ends with a `● Roundhouse ↗` link while `machine` is
-present. The dot is the lamp (`calm`, `heads-up`, `act` as CSS classes on
-`.lamp-dot`). It is not a tab: Tab and Shift+Tab cycle the board's own tabs
-and skip it; its number key and a click open the drawer.
 
 What Roundhouse uses from Switchyard: its `snapshot` (aggregate phase, main
 line, queue, task labels, and the queue head's `message` while it waits) for
-a Switchyard link in its tab row, dotted with the aggregate phase, and a
-one-line build status on its Machine tab; and `{"cmd":"show","anchor":...}`
-when either is clicked, to open this board from the same icon.
+a one-line build status on its Machine tab.
 
 ## History
 
@@ -519,8 +506,7 @@ foreign_author = "act"
 ```
 
 When no `[[tab]]` is configured there is one tab, "All". History and Shelf
-follow the configured tabs, then Inspection when configured, Shelf last; a
-running Roundhouse adds a link after them (see [Siblings](#siblings)).
+follow the configured tabs, then Inspection when configured, Shelf last.
 
 ## Manifest reference
 
@@ -672,7 +658,7 @@ on any repo. The CLI has `yard inspect [repo] [--tag <tag>] [--json]
 | Grid | arrows, Enter | move, run the selected tile |
 | Grid | Space | variants for the selected tile |
 | Grid | `/` | filter |
-| Grid | Tab, Shift+Tab, 1-9 | switch tabs (the number after Shelf opens Roundhouse while it runs) |
+| Grid | Tab, Shift+Tab, 1-9 | switch tabs |
 | Log | `y` | copy the error with context |
 | Log | `e` | open the error location in the editor |
 | Log | `r` | run again |

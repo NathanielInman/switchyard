@@ -57,7 +57,6 @@ enum TabKind {
     History,
     Inspection,
     Shelf,
-    Roundhouse,
 }
 
 #[derive(Clone)]
@@ -155,8 +154,6 @@ pub struct Board {
     last_slow: Cell<Option<Instant>>,
     connected: Cell<bool>,
     gauge_frac: Cell<f64>,
-    /// Where the board last opened from, handed on to Roundhouse.
-    anchor: RefCell<Option<Anchor>>,
 }
 
 fn label(text: &str, class: &str) -> gtk::Label {
@@ -348,7 +345,6 @@ impl Board {
             last_slow: Cell::new(None),
             connected: Cell::new(false),
             gauge_frac: Cell::new(0.0),
-            anchor: RefCell::new(None),
         });
         b.wire();
         let w = Rc::downgrade(&b);
@@ -668,7 +664,6 @@ impl Board {
                 self.window.set_monitor(Some(&m));
             }
         }
-        *self.anchor.borrow_mut() = anchor.clone();
         self.stage.set_anchor(anchor);
         self.close_menu();
         self.search.set_text("");
@@ -708,8 +703,6 @@ impl Board {
         if !was_visible {
             self.send_quiet(Request::BoardVisible { visible: true });
             self.send_quiet(Request::Ack { phase: AckPhase::Open, id: None });
-            // One panel at a time: opening the board closes Roundhouse's drawer.
-            std::thread::spawn(yard_core::sibling::roundhouse_hide);
         }
         self.start_ticker();
     }
@@ -882,8 +875,6 @@ impl Board {
         entries.push(("Shelf".into(), shelf_count));
         drop(snap);
         let active = self.tab_kinds().iter().position(|k| *k == self.current_tab()).unwrap_or(0);
-        let snap = self.snap.borrow();
-        let Some(s) = snap.as_ref() else { return };
         for (i, (name, n)) in entries.into_iter().enumerate() {
             let b = gtk::Button::new();
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -906,46 +897,10 @@ impl Board {
             });
             self.tabs_box.append(&b);
         }
-        // Roundhouse, while it runs, is a link after Shelf: its dot is the
-        // machine lamp, and a click hands the anchor to its drawer.
-        if let Some(m) = &s.machine {
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 5);
-            let dot = gtk::Label::new(Some("\u{25cf}"));
-            dot.add_css_class("lamp-dot");
-            if matches!(m.level.as_str(), "calm" | "heads-up" | "act") {
-                dot.add_css_class(&m.level);
-            }
-            row.append(&dot);
-            row.append(&gtk::Label::new(Some("Roundhouse")));
-            let arrow = gtk::Label::new(Some("\u{2197}"));
-            arrow.add_css_class("arrow");
-            row.append(&arrow);
-            let b = gtk::Button::new();
-            b.set_child(Some(&row));
-            b.set_focusable(false);
-            b.add_css_class("link");
-            b.set_tooltip_text(Some("Open the Roundhouse drawer"));
-            let w = Rc::downgrade(self);
-            b.connect_clicked(move |_| {
-                if let Some(b) = w.upgrade() {
-                    b.open_roundhouse();
-                }
-            });
-            self.tabs_box.append(&b);
-        }
-    }
-
-    /// Closes the board and opens Roundhouse's drawer from the same anchor.
-    fn open_roundhouse(self: &Rc<Self>) {
-        let anchor = self.anchor.borrow().clone();
-        self.hide();
-        std::thread::spawn(move || {
-            yard_core::sibling::roundhouse_show(anchor.as_ref());
-        });
     }
 
     /// Tabs by position: the configured tabs, History, Inspection when it is
-    /// configured, Shelf, then the Roundhouse link while Roundhouse runs.
+    /// configured, then Shelf.
     fn tab_kinds(&self) -> Vec<TabKind> {
         let snap = self.snap.borrow();
         let Some(s) = snap.as_ref() else { return vec![] };
@@ -955,9 +910,6 @@ impl Board {
             v.push(TabKind::Inspection);
         }
         v.push(TabKind::Shelf);
-        if s.machine.is_some() {
-            v.push(TabKind::Roundhouse);
-        }
         v
     }
 
@@ -973,10 +925,6 @@ impl Board {
     fn select_tab(self: &Rc<Self>, i: usize) {
         self.close_menu();
         let Some(kind) = self.tab_kinds().get(i).copied() else { return };
-        if kind == TabKind::Roundhouse {
-            self.open_roundhouse();
-            return;
-        }
         if kind == TabKind::History {
             self.open_history();
         } else if kind == TabKind::Inspection {
@@ -2057,7 +2005,7 @@ impl Board {
         }
         match key {
             gdk::Key::Tab | gdk::Key::ISO_Left_Tab => {
-                let kinds: Vec<TabKind> = self.tab_kinds().into_iter().filter(|k| *k != TabKind::Roundhouse).collect();
+                let kinds = self.tab_kinds();
                 let n = kinds.len().max(1);
                 let cur = kinds.iter().position(|k| *k == self.current_tab()).unwrap_or(0);
                 let back = key == gdk::Key::ISO_Left_Tab || state.contains(gdk::ModifierType::SHIFT_MASK);
