@@ -102,9 +102,6 @@ setup:
 cargo build && examples/demo/run-demo.sh
 ```
 
-With Roundhouse installed, the demo also starts an isolated Roundhouse, so the
-board's Roundhouse link has a drawer to open.
-
 <table>
   <tr>
     <td width="33%" valign="top"><img src="docs/assets/screens/grid-shot.png" alt="The board: one heavy build on the main line with another waiting, two dev servers running with memory sparklines, a failed build in red."><br><sub>One heavy build on the main line, the next one queued, two servers running, a failure waiting to be read.</sub></td>
