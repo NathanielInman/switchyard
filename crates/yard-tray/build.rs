@@ -13,7 +13,7 @@ fn main() {
         format!("YARD_MAJOR={}", v("CARGO_PKG_VERSION_MAJOR")),
         format!("YARD_MINOR={}", v("CARGO_PKG_VERSION_MINOR")),
         format!("YARD_PATCH={}", v("CARGO_PKG_VERSION_PATCH")),
-        format!("YARD_VERSION=\"{}\"", v("CARGO_PKG_VERSION")),
+        format!("YARD_VERSION={}", v("CARGO_PKG_VERSION")),
     ];
     embed_resource::compile("assets/yard-tray.rc", &macros).manifest_required().expect("compile the Windows resources");
 }

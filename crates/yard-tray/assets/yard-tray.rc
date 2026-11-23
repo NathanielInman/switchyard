@@ -1,6 +1,11 @@
 // Windows resources for yard-tray.exe: the app icon, and the version info
 // Explorer and the taskbar read the name "Switchyard" from (FileDescription)
 // instead of the file name. build.rs passes the YARD_* macros.
+//
+// YARD_VERSION comes without quotes and is quoted here: MSVC's rc keeps
+// quotes in a -D value, mingw's windres strips them.
+#define YARD_STR2(x) #x
+#define YARD_STR(x) YARD_STR2(x)
 
 1 ICON "switchyard.ico"
 
@@ -19,12 +24,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Nathaniel Inman"
             VALUE "FileDescription", "Switchyard"
-            VALUE "FileVersion", YARD_VERSION
+            VALUE "FileVersion", YARD_STR(YARD_VERSION)
             VALUE "InternalName", "yard-tray"
             VALUE "LegalCopyright", "Nathaniel Inman"
             VALUE "OriginalFilename", "yard-tray.exe"
             VALUE "ProductName", "Switchyard"
-            VALUE "ProductVersion", YARD_VERSION
+            VALUE "ProductVersion", YARD_STR(YARD_VERSION)
         END
     END
     BLOCK "VarFileInfo"
