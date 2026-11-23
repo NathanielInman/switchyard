@@ -12,6 +12,7 @@ yard-core = { path = "../yard-core" }
 serde.workspace = true
 serde_json.workspace = true
 regex.workspace = true
+toml.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 sysinfo = { version = "0.40", default-features = false, features = ["system"] }

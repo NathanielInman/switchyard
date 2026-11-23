@@ -284,7 +284,7 @@ fn inspection_reads_repos_and_clears_merged_branches() {
 }
 
 #[test]
-fn schedules_run_and_catch_up() {
+fn schedules_catch_up_and_adopt_cron() {
     let mut sb = Sandbox::new("schedule");
     // Both tasks last ran two hours ago, so a slot came round since. The
     // strict one's time is an hour ago, so it cannot come round mid-test.
@@ -340,4 +340,28 @@ steps = ["{ok}"]
     let o = sb.cmd().args(["history", "nightly", "--json"]).output().unwrap();
     let h: Value = serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!(h["records"][0]["trigger"], "schedule", "{h}");
+
+    // A crontab becomes an overlay of scheduled tasks; cron itself is not touched.
+    let tab = sb.root.join("crontab.txt");
+    std::fs::write(
+        &tab,
+        "MAILTO=\"\"\n# sync the notes repo\n@hourly /home/u/bin/cron-notes-sync.sh\n0 3 * * * $HOME/bin/backup.sh --all\n@reboot /usr/bin/thing\n",
+    )
+    .unwrap();
+    let o = sb.cmd().args(["adopt", "cron", "--from"]).arg(&tab).output().unwrap();
+    let out = String::from_utf8_lossy(&o.stdout);
+    assert!(o.status.success(), "{o:?}");
+    assert!(out.contains("with 2 tasks"), "{out}");
+    assert!(out.contains("left out: @reboot"), "{out}");
+    assert!(out.contains("  0 3 * * * $HOME/bin/backup.sh --all"), "{out}");
+    sb.cmd().arg("reload").output().unwrap();
+    let t = sb.task("notes-sync");
+    assert_eq!(t["schedule"], "hourly", "{t}");
+    assert_eq!(t["description"], "sync the notes repo", "{t}");
+    assert_eq!(sb.task("backup")["schedule"], "0 3 * * *");
+
+    // A second adopt never overwrites the first.
+    let o = sb.cmd().args(["adopt", "cron", "--from"]).arg(&tab).output().unwrap();
+    assert!(!o.status.success());
+    assert!(String::from_utf8_lossy(&o.stderr).contains("already exists"));
 }

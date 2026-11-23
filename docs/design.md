@@ -203,6 +203,17 @@ and leaves the task runnable by hand.
   next 03:00"), and `yard ls` prints the same. A scheduled task is never
   offered the stale Shelf hint.
 
+`yard adopt cron` reads `crontab -l` (or `--from <file>`) and writes
+`tasks.d/cron.toml` with one scheduled task per job, tagged `cron`, with
+`catch_up = true` in its `[defaults]`. Each task's id comes from its script's
+name, its description from the comment above the line. `NAME=value` lines
+become the tasks' `env`, except cron's own (`MAILTO`, `SHELL`, `CRON_TZ`).
+Lines it cannot carry over (`@reboot`, a `%` in the command) are written as
+comments with the reason. It never edits the crontab and never overwrites an
+existing `cron.toml`; it prints the lines to remove once the tasks have run,
+since until then cron and Switchyard both run them. `--print` shows the file
+without writing it.
+
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.

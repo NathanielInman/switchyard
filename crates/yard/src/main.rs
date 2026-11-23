@@ -1,5 +1,6 @@
 //! `yard`: the Switchyard daemon, CLI, waybar module and in-unit runner.
 
+mod adopt;
 mod cli;
 mod daemon;
 mod history;
@@ -33,6 +34,8 @@ usage: yard <command> [args]
   inspect <repo> --remove-worktrees | --delete-branches
                            clear merged worktrees or branches
   add [dir]                scaffold a .yard.toml for a repo
+  adopt cron [--from file] [--print]
+                           turn your crontab into scheduled tasks
   reload                   re-read config and manifests now
   bar                      waybar module: stream the aggregate state
   setup [--uninstall]      start Switchyard at login, write a starter config
@@ -79,6 +82,7 @@ fn dispatch(args: &[String]) -> Result<i32> {
         "history" => cli::history(rest),
         "inspect" | "inspection" => cli::inspect(rest),
         "add" => cli::add(rest),
+        "adopt" => adopt::run(rest),
         "reload" => cli::simple(yard_core::protocol::Request::Reload),
         "bar" => cli::bar(),
         "doctor" => cli::doctor(),
