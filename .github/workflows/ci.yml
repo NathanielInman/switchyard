@@ -3,7 +3,23 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs, pictures and notes never change a build.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "Pictures/**"
+      - "artwork/**"
+      - "LICENSE"
+      - "AGENTS.md"
   pull_request:
+    # Docs, pictures and notes never change a build.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "Pictures/**"
+      - "artwork/**"
+      - "LICENSE"
+      - "AGENTS.md"
 
 concurrency:
   group: ci-${{ github.ref }}
