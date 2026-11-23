@@ -352,7 +352,12 @@ fn read_tail(path: &Path, max: u64) -> String {
 impl Daemon {
     fn new(tx: Sender<Msg>) -> Daemon {
         let (cfg, problems) = Config::load();
-        let start = (now() as u64 % 10_000_000) * 100;
+        // Run ids name systemd units, so two daemons (an isolated one beside the
+        // installed one, parallel tests started in the same millisecond) must
+        // not hand out the same ones: each takes a random block of a thousand
+        // within its start millisecond. The ids still grow across restarts,
+        // which keeping the newest logs relies on.
+        let start = ((now() * 1000.0) as u64 % 100_000_000_000) * 1_000_000 + (random_u64() % 1000) * 1000;
         Daemon {
             tx,
             sup: supervise::pick(),
