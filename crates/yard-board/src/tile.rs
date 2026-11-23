@@ -407,11 +407,16 @@ pub fn status_line(v: &TaskView, now: f64) -> String {
                 };
                 if v.stale {
                     format!("unused {} · Shelf?", ago(now - v.last_used.unwrap_or(l.at)))
+                } else if let Some(n) = &v.next_label {
+                    format!("{o} {} · next {n}", ago(now - l.at))
                 } else {
                     format!("idle · {o} {}", ago(now - l.at))
                 }
             }
-            None => "idle · never run".into(),
+            None => match &v.next_label {
+                Some(n) => format!("idle · next {n}"),
+                None => "idle · never run".into(),
+            },
         },
     }
 }

@@ -3,6 +3,7 @@
 
 use crate::config::Config;
 use crate::paths;
+use crate::schedule::Schedule;
 use crate::size::parse_size;
 use crate::Problem;
 use serde::{Deserialize, Serialize};
@@ -130,6 +131,11 @@ pub struct TaskDef {
     pub variants: Vec<Variant>,
     pub watch: Vec<Watch>,
     pub rerun: Rerun,
+    /// Runs on its own at these times.
+    pub schedule: Option<Schedule>,
+    /// Runs a slot missed while the daemon was down or the machine asleep once
+    /// it is back.
+    pub catch_up: bool,
     pub source: PathBuf,
     pub origin: Origin,
 }
@@ -272,6 +278,8 @@ struct RawTask {
     variants: Option<Vec<RawVariant>>,
     watch: Option<Vec<RawWatch>>,
     rerun: Option<Rerun>,
+    schedule: Option<String>,
+    catch_up: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -349,6 +357,10 @@ fn merge(t: RawTask, d: &RawTask) -> RawTask {
         variants: t.variants.or_else(|| d.variants.clone()),
         watch: t.watch.or_else(|| d.watch.clone()),
         rerun: t.rerun.or(d.rerun),
+        // Like `pin`, a time belongs to one task: a shared one would start
+        // the whole file at once.
+        schedule: t.schedule,
+        catch_up: t.catch_up.or(d.catch_up),
     }
 }
 
@@ -444,6 +456,16 @@ fn resolve(id: &str, t: RawTask, ctx: &Ctx, problems: &mut Vec<Problem>) -> Opti
             pattern: w.pattern,
         });
     }
+    let schedule = match &t.schedule {
+        Some(s) => match Schedule::parse(s) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                problem(problems, format!("task \"{id}\": schedule \"{s}\": {e}"));
+                None
+            }
+        },
+        None => None,
+    };
     let retry = t.retry.map(|r| Retry { step: r.step, on: r.on.unwrap_or_default(), attempts: r.attempts.unwrap_or(3).max(1) });
     let log = match &t.log {
         Some(l) => paths::expand_in(l, ctx.base),
@@ -477,6 +499,8 @@ fn resolve(id: &str, t: RawTask, ctx: &Ctx, problems: &mut Vec<Problem>) -> Opti
         variants,
         watch,
         rerun: t.rerun.unwrap_or_default(),
+        schedule,
+        catch_up: t.catch_up.unwrap_or(false),
         source: ctx.source.to_path_buf(),
         origin: ctx.origin,
     })
@@ -553,6 +577,8 @@ pub fn parse_script(text: &str, path: &Path, log_dir: &Path, problems: &mut Vec<
             _ => None,
         }),
         shelf: get("shelf").map(|v| v.is_empty() || v == "true"),
+        schedule: get("schedule"),
+        catch_up: get("catch_up").map(|v| v.is_empty() || v == "true"),
         steps: Some(vec![RawStep::Named { name: Some(stem.clone()), cmd }]),
         variants: if variants.is_empty() { None } else { Some(variants) },
         notify: Some(NotifyMode::Failure),
@@ -798,6 +824,35 @@ mod tests {
     }
 
     #[test]
+    fn schedules() {
+        let (t, p) = parse(
+            r#"
+            [defaults]
+            catch_up = true
+            schedule = "hourly"
+            [task.backup]
+            schedule = "03:00"
+            steps = ["./backup.sh"]
+            [task.manual]
+            steps = ["make"]
+            [task.typo]
+            schedule = "nightly"
+            steps = ["make"]
+            "#,
+        );
+        assert_eq!(p.len(), 1, "{p:?}");
+        assert!(p[0].message.contains("task \"typo\": schedule \"nightly\""), "{p:?}");
+        let b = t.iter().find(|t| t.id == "backup").unwrap();
+        assert_eq!(b.schedule.as_ref().unwrap().text(), "03:00");
+        assert!(b.catch_up);
+        // [defaults] never schedules a task by itself.
+        let m = t.iter().find(|t| t.id == "manual").unwrap();
+        assert!(m.schedule.is_none());
+        assert!(m.catch_up);
+        assert!(t.iter().find(|t| t.id == "typo").unwrap().schedule.is_none());
+    }
+
+    #[test]
     fn script_headers() {
         let text = "#!/bin/bash\n# @yard.label  rotate wallpaper\n# @yard.tags   desk misc\n# @yard.alt    pkill -USR2 -f wallpaper.sh # ban current\npkill -USR1 -f wallpaper.sh\n";
         let mut p = vec![];
@@ -808,6 +863,16 @@ mod tests {
         assert_eq!(t.variants[0].label, "ban current");
         assert_eq!(t.variants[0].steps.as_ref().unwrap()[0].cmd, "pkill -USR2 -f wallpaper.sh");
         assert_eq!(t.steps[0].cmd, "/home/u/.local/bin/wallpaper-next");
+        assert!(t.schedule.is_none());
+        let t = parse_script(
+            "#!/bin/sh\n# @yard.schedule  every 30m\n# @yard.catch_up\necho hi\n",
+            Path::new("/x/sync"),
+            Path::new("/l"),
+            &mut p,
+        )
+        .unwrap();
+        assert_eq!(t.schedule.unwrap().text(), "every 30m");
+        assert!(t.catch_up);
         assert!(parse_script("#!/bin/sh\necho hi\n", Path::new("/x/y"), Path::new("/l"), &mut p).is_none());
     }
 

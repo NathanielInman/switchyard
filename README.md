@@ -135,6 +135,7 @@ cargo build && examples/demo/run-demo.sh
 | | |
 |---|---|
 | **History** | Every run is recorded with its step times, retries, queue wait, peak memory and commit, and folded into episodes by day: "broken for 18m, fixed by 3f2a1c", "9 ok, 23% slower in next build". Open a task's strip to see every run as a bar against its usual time, and any past run's own log. `yard history` prints the same in a terminal. |
+| **Schedules** | `schedule = "03:00"` (or `hourly`, `mon-fri 09:00`, `every 15m`, five cron fields) runs a task on its own, with the same log, lamp and History as a click. `catch_up = true` runs a slot missed while you were logged out once you are back. |
 | **Inspection** | Optional: add `[inspection]` with `roots = ["~/code/*"]` and a tab lists every repo there with one lamp and the thing that most needs you: commits on no remote, old uncommitted work, merged worktrees and branches, bots committing to your repos. A card shows churn and bug hotspots, monthly rhythm, who writes the code and build output size, and holding <kbd>w</kbd> or <kbd>b</kbd> clears merged worktrees or branches. Tags from each remote (`github`, your org) filter the list. `yard inspect` prints the same in a terminal. |
 | **Anchoring** | Reads the bar's position and your click from Hyprland's IPC, so the panel grows out of the icon on any edge. Falls back to a centered panel elsewhere. |
 | **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (rerun yesterday's branch), open the log, open in your editor, a terminal in the repo, copy the exact command. |
@@ -278,6 +279,7 @@ A manifest holds one or more tasks. The common keys:
 | `watch` | Notify on matching lines from the running task. |
 | `confirm` | `"hold"` or `"type"` for tasks you should not fire by reflex. |
 | `check` | A command that must pass after the steps, such as a health check. |
+| `schedule` | Also run on its own: `"03:00"`, `"hourly"`, `"mon-fri 09:00"`, `"every 15m"` or five cron fields. Add `catch_up = true` to run a missed slot later. |
 
 The full reference, with every key and the config file, is in
 [docs/design.md](docs/design.md#manifest-reference). Example manifests live in

@@ -15,7 +15,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::{Duration, Instant};
 use yard_core::config::Config;
 use yard_core::errors::{failing_section, find_first_error, ErrorHit};
-use yard_core::history::{GitRef, RunRecord, StepTime};
+use yard_core::history::{GitRef, RunRecord, StepTime, Trigger};
 use yard_core::inspect::{InspectionData, Signals, Status};
 use yard_core::manifest::{self, NotifyMode, Rerun, Step, TaskDef};
 use yard_core::model::*;
@@ -26,6 +26,10 @@ use yard_core::transport::{Listener, Stream};
 use yard_core::Problem;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
+
+/// A scheduled run this late (the daemon was down, the machine asleep) is
+/// skipped unless the task has `catch_up`.
+const LATE_SECS: f64 = 120.0;
 
 const INSPECTION_OFF: &str = "Inspection is off. Add an [inspection] table with roots to config.toml.";
 
@@ -69,6 +73,8 @@ struct Pending {
     params: BTreeMap<String, String>,
     variant: Option<String>,
     clean: bool,
+    /// Started by the task's schedule rather than by hand.
+    scheduled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +117,10 @@ struct TaskRt {
     /// When the current run was asked for (it may queue first).
     requested: Option<f64>,
     meta: Option<RunMeta>,
+    /// Unix seconds when the schedule fires next.
+    next_due: Option<f64>,
+    /// The schedule text `next_due` was worked out for.
+    planned: Option<String>,
 }
 
 /// What the history needs to know about the run in flight.
@@ -128,6 +138,7 @@ struct RunMeta {
     params: BTreeMap<String, String>,
     variant: Option<String>,
     git: Option<GitRef>,
+    scheduled: bool,
 }
 
 impl RunMeta {
@@ -180,6 +191,8 @@ pub struct Daemon {
     history_rev: u64,
     base_env: BTreeMap<String, String>,
     insp: Insp,
+    /// Schedules have been planned once; catch-up only happens on that pass.
+    planned: bool,
 }
 
 /// The Inspection tab's state. Idle unless `[inspection]` is configured.
@@ -355,6 +368,7 @@ impl Daemon {
             history_rev: 0,
             base_env: BTreeMap::new(),
             insp: Insp::default(),
+            planned: false,
         }
     }
 
@@ -442,6 +456,8 @@ impl Daemon {
         let ids: Vec<String> = self.tasks.iter().map(|t| t.id.clone()).collect();
         self.rt.retain(|k, _| ids.contains(k));
         self.queue.retain(|k| ids.contains(k));
+        self.plan(!self.planned);
+        self.planned = true;
         self.base_env = self.compute_env();
         self.shell = if self.cfg.shell.is_empty() { supervise::default_shell() } else { self.cfg.shell.clone() };
         self.shelf = None;
@@ -511,7 +527,7 @@ impl Daemon {
                 self.subscribe(kind, stream);
                 return;
             }
-            Request::Run { id, params, variant, clean } => self.request_run(&id, Pending { params, variant, clean }),
+            Request::Run { id, params, variant, clean } => self.request_run(&id, Pending { params, variant, clean, scheduled: false }),
             Request::Stop { id } => self.stop(&id),
             Request::Ack { phase, id } => self.ack(phase, id.as_deref()),
             Request::Toggle { anchor } => self.board_event(Event::Toggle { anchor }),
@@ -970,6 +986,7 @@ impl Daemon {
                 variant: variant.as_ref().map(|v| v.name.clone()),
                 git,
                 mem_cap,
+                scheduled: p.scheduled,
                 ..Default::default()
             });
         }
@@ -1118,7 +1135,8 @@ impl Daemon {
                 rec.phase = RunPhase::Launch;
                 rec.build_secs = secs;
                 rec.gone_since = None;
-                if def.notify == NotifyMode::Always || (def.notify == NotifyMode::Auto && secs >= 20.0) {
+                let scheduled = self.rt(&def.id).meta.as_ref().is_some_and(|m| m.scheduled);
+                if def.notify == NotifyMode::Always || (def.notify == NotifyMode::Auto && secs >= 20.0 && !scheduled) {
                     sys::notify(&def.label, &format!("Built in {}, launching", duration(secs)), "low");
                 }
                 self.rt(&def.id).clear_live();
@@ -1166,6 +1184,8 @@ impl Daemon {
     }
 
     fn succeed(&mut self, def: &TaskDef, secs: f64, build_only: bool) {
+        // Nobody is waiting on a run they did not start.
+        let scheduled = self.rt(&def.id).meta.as_ref().is_some_and(|m| m.scheduled);
         {
             let r = self.rt(&def.id);
             r.clear_live();
@@ -1178,7 +1198,7 @@ impl Daemon {
         self.write_record(&def.id, Outcome::Ok, 0, None, None);
         let notify = match def.notify {
             NotifyMode::Always => true,
-            NotifyMode::Auto => build_only && secs >= 20.0,
+            NotifyMode::Auto => build_only && secs >= 20.0 && !scheduled,
             _ => false,
         };
         if notify || def.notify_tail > 0 && def.notify != NotifyMode::Never && def.notify != NotifyMode::Failure {
@@ -1333,6 +1353,7 @@ impl Daemon {
             variant: m.variant,
             git: m.git,
             log,
+            trigger: if m.scheduled { Trigger::Schedule } else { Trigger::Manual },
         };
         crate::runlog::append(&rec);
         self.history_rev += 1;
@@ -1374,6 +1395,7 @@ impl Daemon {
             self.dirty = true;
         }
         self.scan_captures();
+        self.fire_due(t);
         if !self.queue.is_empty() && self.mainline.is_none() {
             self.schedule();
         }
@@ -1392,6 +1414,60 @@ impl Daemon {
         if self.history_dirty && self.ticks.is_multiple_of(2) {
             self.history.save();
             self.history_dirty = false;
+        }
+    }
+
+    /// Works out each scheduled task's next run, again only when its schedule
+    /// changed. On the daemon's first pass a `catch_up` task whose slot came
+    /// round since its last run is due at once; the tick starts it after
+    /// running units have been adopted, so one still running is left alone.
+    fn plan(&mut self, boot: bool) {
+        let t = now();
+        for def in &self.tasks {
+            let text = def.schedule.as_ref().map(|s| s.text().to_string());
+            let r = self.rt.entry(def.id.clone()).or_default();
+            if r.planned == text && !boot {
+                continue;
+            }
+            r.planned = text;
+            r.next_due = def.schedule.as_ref().and_then(|s| {
+                let missed = boot && def.catch_up && self.history.last_used(&def.id).and_then(|l| s.next_unix(l)).is_some_and(|n| n <= t);
+                if missed {
+                    Some(t)
+                } else {
+                    s.next_unix(t)
+                }
+            });
+        }
+    }
+
+    /// Starts every scheduled task whose time has come, like a click would.
+    fn fire_due(&mut self, t: f64) {
+        let due: Vec<(String, f64, bool)> = self
+            .tasks
+            .iter()
+            .filter_map(|d| {
+                let at = self.rt.get(&d.id)?.next_due?;
+                (d.schedule.is_some() && t >= at).then(|| (d.id.clone(), at, d.catch_up))
+            })
+            .collect();
+        for (id, at, catch_up) in due {
+            let next = self.def(&id).and_then(|d| d.schedule.as_ref()).and_then(|s| s.next_unix(t));
+            let phase = {
+                let r = self.rt(&id);
+                r.next_due = next;
+                r.phase
+            };
+            self.dirty = true;
+            if t - at > LATE_SECS && !catch_up {
+                eprintln!("switchyard: {id}: skipped the {} run, {} late", local_time(at), duration(t - at));
+                continue;
+            }
+            if phase.active() {
+                eprintln!("switchyard: {id}: skipped the {} run, the last one is still going", local_time(at));
+                continue;
+            }
+            let _ = self.request_run(&id, Pending { scheduled: true, ..Default::default() });
         }
     }
 
@@ -1543,7 +1619,7 @@ impl Daemon {
                     heavy: def.heavy,
                     confirm: def.confirm,
                     shelf: self.history.shelved.get(&def.id).copied().unwrap_or(def.shelf),
-                    stale: def.pin.is_none() && last_used.is_some_and(|u| t - u > stale_secs),
+                    stale: def.pin.is_none() && def.schedule.is_none() && last_used.is_some_and(|u| t - u > stale_secs),
                     phase: r.phase,
                     since: r.since,
                     step: r.step.clone(),
@@ -1578,6 +1654,9 @@ impl Daemon {
                     frecency: self.history.frecency(&def.id, t),
                     queue_pos: self.queue.iter().position(|q| *q == def.id),
                     command: def.command_preview(),
+                    schedule: def.schedule.as_ref().map(|s| s.text().to_string()),
+                    next_run: r.next_due,
+                    next_label: r.next_due.map(|n| yard_core::schedule::next_label(n, t)),
                 }
             })
             .collect();

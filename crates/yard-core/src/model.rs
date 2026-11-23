@@ -132,6 +132,15 @@ pub struct TaskView {
     pub frecency: f64,
     pub queue_pos: Option<usize>,
     pub command: String,
+    /// The task's schedule as written, when it runs on its own.
+    #[serde(default)]
+    pub schedule: Option<String>,
+    /// Unix seconds of the next scheduled run.
+    #[serde(default)]
+    pub next_run: Option<f64>,
+    /// The next run as a board shows it: "03:00", "Tue 03:00", "Dec 1".
+    #[serde(default)]
+    pub next_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

@@ -7,7 +7,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
 use std::f64::consts::PI;
 use std::rc::Rc;
-use yard_core::history::{Episode, Lamp, RunRecord};
+use yard_core::history::{Episode, Lamp, RunRecord, Trigger};
 use yard_core::model::{duration, Outcome};
 use yard_core::protocol::HistoryData;
 use yard_core::size::human;
@@ -628,7 +628,13 @@ impl HistoryView {
             (Some(p), None) => (format!("{} peak", human(p)), "no cap".to_string()),
             _ => ("".to_string(), String::new()),
         };
-        let queue = (format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".to_string());
+        let queue = match r.trigger {
+            Trigger::Schedule if r.queued_secs >= 1.0 => {
+                ("scheduled".to_string(), format!("queued {}", yard_core::model::clock(r.queued_secs)))
+            }
+            Trigger::Schedule => ("scheduled".to_string(), "started on its own".to_string()),
+            Trigger::Manual => (format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".to_string()),
+        };
         let git = r
             .git
             .as_ref()

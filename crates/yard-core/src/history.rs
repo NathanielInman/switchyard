@@ -64,6 +64,19 @@ pub struct RunRecord {
     /// This run's own copy of its log, when one was kept.
     #[serde(default)]
     pub log: Option<String>,
+    /// Who started it. Older records were all started by hand.
+    #[serde(default)]
+    pub trigger: Trigger,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Trigger {
+    /// The board, the CLI or a restart.
+    #[default]
+    Manual,
+    /// The task's `schedule`.
+    Schedule,
 }
 
 impl RunRecord {
@@ -525,6 +538,7 @@ mod tests {
             variant: None,
             git: Some(GitRef { sha: format!("{run:07}"), branch: "main".into(), dirty: 0 }),
             log: None,
+            trigger: Trigger::Manual,
         }
     }
 

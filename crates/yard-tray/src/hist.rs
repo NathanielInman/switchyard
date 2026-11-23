@@ -3,7 +3,7 @@
 use crate::draw::*;
 use eframe::egui::{self, pos2, vec2, Align2, Color32, CornerRadius, Rect, Sense, Stroke, StrokeKind};
 use std::collections::BTreeSet;
-use yard_core::history::{Episode, Lamp, RunRecord};
+use yard_core::history::{Episode, Lamp, RunRecord, Trigger};
 use yard_core::model::{duration, Outcome};
 use yard_core::protocol::HistoryData;
 use yard_core::size::human;
@@ -423,7 +423,13 @@ impl HistState {
                     r.mem_cap.map(|c| format!("of the {} cap", human(c))).unwrap_or_else(|| "no cap".into()),
                 ));
             }
-            facts.push((format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".into()));
+            facts.push(match r.trigger {
+                Trigger::Schedule if r.queued_secs >= 1.0 => {
+                    ("scheduled".into(), format!("queued {}", yard_core::model::clock(r.queued_secs)))
+                }
+                Trigger::Schedule => ("scheduled".into(), "started on its own".into()),
+                Trigger::Manual => (format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".into()),
+            });
             if let Some(g) = &r.git {
                 facts.push((g.sha[..g.sha.len().min(7)].to_string(), g.branch.clone()));
             }

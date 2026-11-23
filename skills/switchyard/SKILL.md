@@ -30,6 +30,11 @@ that is not in the example below.
    - `retry` only for a step with a known crash (OOM kill, flaky importer),
      with a comment naming the cause.
    - `params` with `{name}` placeholders replace near-duplicate tasks.
+   - `schedule` for jobs that should also run on their own (`"03:00"`,
+     `"hourly"`, `"mon-fri 09:00"`, `"every 15m"` or five cron fields), with
+     `catch_up = true` when a missed run should still happen. Steps that
+     must run in order belong in one task, not two schedules a few minutes
+     apart.
    - `errors` names the matchers for the toolchain (`rust`, `typescript`,
      `go`, `csharp`, `gradle`, `godot`, `python`, `generic`) so the log opens
      on the first real error.

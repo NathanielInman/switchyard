@@ -17,6 +17,7 @@ regex = "1"
 anyhow = "1"
 glob = "0.3"
 libc = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 # GTK and egui callbacks live in RefCell<Option<Rc<dyn Fn(..)>>> fields;
 # naming each one would hide the shape, not simplify it.

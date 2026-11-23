@@ -13,7 +13,7 @@ serde.workspace = true
 serde_json.workspace = true
 regex.workspace = true
 anyhow.workspace = true
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
+chrono.workspace = true
 sysinfo = { version = "0.40", default-features = false, features = ["system"] }
 
 [target.'cfg(unix)'.dependencies]

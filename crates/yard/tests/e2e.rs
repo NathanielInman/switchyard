@@ -282,3 +282,62 @@ fn inspection_reads_repos_and_clears_merged_branches() {
         std::thread::sleep(Duration::from_millis(200));
     }
 }
+
+#[test]
+fn schedules_run_and_catch_up() {
+    let mut sb = Sandbox::new("schedule");
+    // Both tasks last ran two hours ago, so a slot came round since. The
+    // strict one's time is an hour ago, so it cannot come round mid-test.
+    sb.stop_daemon();
+    let past = chrono::Local::now() - chrono::TimeDelta::hours(1);
+    let strict = format!("{} {} * * *", chrono::Timelike::minute(&past), chrono::Timelike::hour(&past));
+    let work = sb.root.join("work").to_string_lossy().replace('\\', "/");
+    std::fs::write(
+        sb.root.join("config/tasks.d/sched.toml"),
+        format!(
+            r#"
+[defaults]
+dir = "{work}"
+notify = "never"
+
+[task.nightly]
+schedule = "hourly"
+catch_up = true
+steps = ["{ok}"]
+
+[task.strict]
+schedule = "{strict}"
+steps = ["{ok}"]
+"#,
+            ok = cmds::OK
+        ),
+    )
+    .unwrap();
+    let then = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs_f64() - 7200.0;
+    std::fs::write(
+        sb.root.join("state/state.json"),
+        format!(r#"{{"tasks":{{"nightly":{{"runs":[{then}]}},"strict":{{"runs":[{then}]}}}}}}"#),
+    )
+    .unwrap();
+    sb.start();
+
+    // The catch_up task runs by itself; the other waits for its next slot.
+    let start = Instant::now();
+    let t = loop {
+        let t = sb.task("nightly");
+        if t["last"]["outcome"] == "ok" {
+            break t;
+        }
+        assert!(start.elapsed() < Duration::from_secs(30), "nightly never caught up: {t}");
+        std::thread::sleep(Duration::from_millis(150));
+    };
+    assert_eq!(t["schedule"], "hourly");
+    let strict = sb.task("strict");
+    assert!(strict["last"].is_null(), "{strict}");
+    assert!(strict["next_run"].as_f64().unwrap() > then + 7200.0, "{strict}");
+    assert!(strict["next_label"].as_str().unwrap().contains(':'), "{strict}");
+
+    let o = sb.cmd().args(["history", "nightly", "--json"]).output().unwrap();
+    let h: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(h["records"][0]["trigger"], "schedule", "{h}");
+}

@@ -150,7 +150,8 @@ pub fn ls(rest: &[String]) -> Result<i32> {
     for t in tasks {
         let tags = if t.tags.is_empty() { String::new() } else { p.c("90", &format!(" [{}]", t.tags.join(" "))) };
         let heavy = if t.heavy { p.c("33", " heavy") } else { String::new() };
-        println!("{} {:w$}  {}{}{}", p.phase(t.phase), t.id, state_text(t, snap.now), heavy, tags, w = w);
+        let next = t.next_label.as_ref().map(|n| p.c("36", &format!(" · next {n}"))).unwrap_or_default();
+        println!("{} {:w$}  {}{}{}{}", p.phase(t.phase), t.id, state_text(t, snap.now), next, heavy, tags, w = w);
     }
     for pr in &snap.problems {
         eprintln!("{} {}: {}", p.c("33", "!"), pr.file, pr.message);

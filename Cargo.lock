@@ -4752,6 +4752,7 @@ name = "yard-core"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "glob",
  "libc",
  "regex",

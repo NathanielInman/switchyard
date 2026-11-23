@@ -43,6 +43,7 @@ tour; this is the spec.
 | Run | An optional long-running command after the steps succeed, such as the game window or a dev server. |
 | Heavy | A task whose steps need the main line. Only one heavy build runs at a time. |
 | Main line | The single slot heavy builds take turns on, guarded by a free-memory check. |
+| Schedule | When a task runs on its own: `hourly`, `03:00`, five cron fields. |
 | Board | The panel window. |
 | Shelf | A dense list for tasks you rarely run, CLI tools and key binds. |
 | Inspection | The optional tab with one row per repo under `inspection.roots`. |
@@ -163,6 +164,45 @@ below `mainline.min_free`. Each heavy build gets `MemoryMax` from the task or
 `mainline.mem`, `MemorySwapMax=0`, `CPUWeight=idle` and nice 19. Non-heavy
 tasks never wait.
 
+### Schedules
+
+A task with `schedule` also runs on its own. The daemon is the clock: on its
+one-second tick it starts every task whose time has come exactly as a click
+would, so a scheduled run gets the same unit, log, error matchers, History
+record and lamp, and a heavy one queues for the main line like any other.
+Building the clock into the daemon keeps one source of truth and works the
+same on Linux, macOS and Windows; there are no generated timers or crontab
+entries to drift out of step.
+
+| Written | Runs |
+|---|---|
+| `hourly`, `daily`, `weekly`, `monthly`, `yearly` | at the start of each, as cron's `@hourly` and friends (the `@` is optional) |
+| `03:00` | every day at that time |
+| `mon-fri 09:00`, `sat,sun 10:30`, `weekdays 08:00`, `weekends 10:00` | on those days at that time |
+| `every 15m`, `every 2h` | cron's `*/15` and `0 */2`: counted from the top of the hour or from midnight, so the times are the same every day |
+| `30 3 * * *` | five cron fields: minute, hour, day of month, month, day of week, with lists, ranges, steps and names |
+
+Times are local wall-clock times, as in cron. A time that a daylight saving
+change skips does not run that day; one it repeats runs once. A schedule that
+does not parse, or never comes round (`0 0 31 2 *`), is a problem on the board
+and leaves the task runnable by hand.
+
+- **Missed runs.** A slot more than two minutes late (the machine slept
+  through it) is skipped, as cron would. With `catch_up = true` it runs once
+  instead, and when the daemon starts, a `catch_up` task whose slot came round
+  since its last run (from `state.json`) runs once at once. That covers a
+  logged-out night: the default user unit is part of the graphical session, so
+  nothing runs while you are logged out, and catch-up runs it at your next
+  login.
+- **Overlap.** A slot that comes round while the last run is still going, or
+  still queued, is skipped. A scheduled run never restarts a running task.
+- **Noise.** `notify = "auto"` only announces successes of runs you started
+  by hand; nobody is waiting on a scheduled one. Failures notify and light the
+  bar lamp as usual.
+- **On the board.** An idle tile's line ends with the next run ("ok 2h ago ·
+  next 03:00"), and `yard ls` prints the same. A scheduled task is never
+  offered the stale Shelf hint.
+
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.
@@ -210,7 +250,8 @@ carries the signal icon and a version resource whose description is
 Every finished run appends one JSON line to
 `~/.local/state/switchyard/history/runs.jsonl` (outcome and exit code, the
 first error, each step's time and attempts, time in the main-line queue, peak
-memory and the cap, params and variant, the commit and branch at start) and
+memory and the cap, params and variant, the commit and branch at start, and
+its `trigger`: `manual` or `schedule`) and
 keeps a copy of the end of its log under `history/logs/<task>/<run>.log`, the
 newest 20 per task. The file is trimmed by half past 8 MB.
 
@@ -230,8 +271,9 @@ the week's numbers, computed in its local timezone:
 Both boards show the feed as a History tab and a task's runs as a strip: one
 bar per run, height for time, color for outcome, the middle half of passing
 runs shaded as "usual". The card for a run shows where its time went, peak
-memory, queue time, the commit (or the last green commit for a failure), and
-replays it with the same params or opens that run's own log.
+memory, queue time (or "scheduled" for a run its schedule started), the
+commit (or the last green commit for a failure), and replays it with the same
+params or opens that run's own log.
 
 ## Inspection
 
@@ -505,6 +547,8 @@ confirm = "none"                      # "hold" or "type" for dangerous tasks
 notify = "auto"                       # "auto", "always", "failure", "never"
 notify_tail = 0                       # include the last N log lines on success
 shelf = false                         # start on the Shelf
+schedule = "03:00"                    # also run on its own; see Schedules
+catch_up = true                       # run a missed slot once the daemon is back
 
 [task.lanternfall.retry]              # retry a step that crashed
 step = 2                              # 1-based; omit for every step
@@ -531,6 +575,10 @@ throttle = 15                         # seconds between notifications
 Commands may use `{param}` placeholders and these environment variables:
 `YARD_TASK`, `YARD_RUN`, `YARD_SCRATCH` (shared by both phases), `YARD_LOG`.
 
+`[defaults]` passes every key on to the file's tasks except `pin` and
+`schedule`, which belong to one task each: a shared time would start the
+whole file at once.
+
 ### Overlays
 
 Files in `~/.config/switchyard/tasks.d/` use the same format. A task there may
@@ -552,7 +600,7 @@ pkill -USR1 -f wallpaper.sh
 ```
 
 Recognized keys: `id`, `label`, `desc`, `tags`, `alt` (adds a variant),
-`heavy`, `confirm`, `pin`, `shelf`.
+`heavy`, `confirm`, `pin`, `shelf`, `schedule`, `catch_up`.
 
 ## Error matchers
 
@@ -571,7 +619,7 @@ resolve against the task directory.
 - The recent strip shows the five most recently run tasks that are not pinned
   on the current tab.
 - Search ranks by frecency: each run adds weight that halves every 7 days.
-- Unpinned tasks unused for `shelf.stale_days` show a quiet "move to Shelf?"
+- Unpinned, unscheduled tasks unused for `shelf.stale_days` show a quiet "move to Shelf?"
   hint. Moving is explicit (variants menu), remembered in `state.json`, and
   reversible.
 
