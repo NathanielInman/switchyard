@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Before a push: clippy for every platform this repo claims (`platforms` in
+# docs/assets/suite.toml; all three when there is none), so a Windows or
+# macOS break shows up here instead of in CI. Linux is built by the normal
+# checks. Turned on per clone with `git config core.hooksPath .githooks`.
+# Needs `rustup target add x86_64-pc-windows-gnu aarch64-apple-darwin` and,
+# for crates with C code, mingw-w64-gcc.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+suite=docs/assets/suite.toml
+if [[ -f $suite ]]; then
+  platforms="$(python3 -c 'import sys, tomllib; print(" ".join(tomllib.load(open(sys.argv[1], "rb")).get("platforms", [])))' "$suite")"
+else
+  platforms="linux windows macos"
+fi
+run=()
+command -v lowprio >/dev/null && run=(lowprio)
+for p in $platforms; do
+  case $p in
+    windows) target=x86_64-pc-windows-gnu ;;
+    macos) target=aarch64-apple-darwin ;;
+    *) continue ;;
+  esac
+  if ! rustup target list --installed | grep -qx "$target"; then
+    echo "pre-push: skipped $p; run rustup target add $target to check it" >&2
+    continue
+  fi
+  echo "pre-push: clippy for $p ($target)" >&2
+  if ! "${run[@]}" cargo clippy --workspace --all-targets --locked --target "$target" -- -D warnings; then
+    echo "error: the $p build is broken; fix it before pushing" >&2
+    exit 1
+  fi
+done

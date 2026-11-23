@@ -49,3 +49,21 @@ Update in the same commit:
 
 Commits are conventional, scoped by area: `board`, `tray`, `cli`, `yard`,
 `core`, `history`, `setup`, `demo`, `release`.
+
+## Platforms
+
+The suite targets Linux, Windows and macOS. `platforms` in
+`docs/assets/suite.toml` lists where this app builds today, and `planned`
+what a port still owes; CI and the pre-push hook hold it to `platforms`.
+
+- Turn the hook on once per clone: `git config core.hooksPath .githooks`.
+  Before a push it runs clippy for every platform listed (needs
+  `rustup target add x86_64-pc-windows-gnu aarch64-apple-darwin` and, for
+  crates with C code, `mingw-w64-gcc`). A failure there is a broken build on
+  that platform: fix it, don't push past it with `--no-verify`.
+- Code for one platform goes behind `#[cfg(...)]`, helpers included: a
+  function only Linux calls is dead code on Windows, and `-D warnings` fails
+  the build there.
+- A test that needs something one platform has (a Linux-only binary, Unix
+  socket behavior, a POSIX shell, a path layout) is gated with `#[cfg(...)]`
+  or skips elsewhere.
