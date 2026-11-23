@@ -10,6 +10,8 @@ repository = "https://github.com/NathanielInman/switchyard"
 authors = ["Nathaniel Inman"]
 
 [workspace.dependencies]
+# Shared with the other waybar apps; bump the tag to take a change.
+bar-anchor = { git = "https://github.com/NathanielInman/bar-anchor", tag = "v0.2.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1"

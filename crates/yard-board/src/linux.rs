@@ -83,10 +83,21 @@ pub fn main() -> glib::ExitCode {
         }
         load_css();
         let (tx, rx) = async_channel::unbounded::<Msg>();
+        // One drawer open at a time across the apps: another app's drawer
+        // opening closes this one.
+        let drawers = {
+            let tx = tx.clone();
+            bar_anchor::drawers::listen("switchyard", move || {
+                let _ = tx.send_blocking(Msg::OtherDrawerOpened);
+            })
+            .inspect_err(|e| eprintln!("yard-board: {e}"))
+            .ok()
+        };
         let board = Board::new(app, tx.clone());
         std::mem::forget(app.hold());
         std::thread::spawn(move || connection(tx));
         glib::spawn_future_local(async move {
+            let _drawers = drawers;
             while let Ok(msg) = rx.recv().await {
                 board.handle(msg);
             }

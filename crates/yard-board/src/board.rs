@@ -18,6 +18,8 @@ use yard_core::search::{floor, rank, ranked, score, shelf_hay, split_tags};
 use yard_core::size::human;
 
 pub enum Msg {
+    /// Another app's drawer opened: close this one.
+    OtherDrawerOpened,
     Event(Event),
     Connected,
     Disconnected,
@@ -464,6 +466,7 @@ impl Board {
 
     pub fn handle(self: &Rc<Self>, msg: Msg) {
         match msg {
+            Msg::OtherDrawerOpened => self.hide(),
             Msg::Connected => {
                 self.connected.set(true);
             }
@@ -701,6 +704,7 @@ impl Board {
         self.spring.play_in(0);
         self.grid_scroller.vadjustment().set_value(0.0);
         if !was_visible {
+            bar_anchor::drawers::opened("switchyard");
             self.send_quiet(Request::BoardVisible { visible: true });
             self.send_quiet(Request::Ack { phase: AckPhase::Open, id: None });
         }

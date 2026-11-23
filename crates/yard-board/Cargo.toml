@@ -10,6 +10,8 @@ authors.workspace = true
 # The layer-shell board is Linux only; macOS and Windows use yard-tray.
 [target.'cfg(target_os = "linux")'.dependencies]
 yard-core = { path = "../yard-core" }
+# One drawer open at a time with the other waybar apps (its drawers module).
+bar-anchor.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
