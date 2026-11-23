@@ -31,6 +31,17 @@ pub struct Config {
     /// systemd timers shown as read-only tiles (Linux).
     #[serde(rename = "timer")]
     pub timers: Vec<TimerConfig>,
+    pub hooks: HooksConfig,
+}
+
+/// Commands the daemon runs when something happens, through the configured
+/// shell. Only the global config can set them, never a repo's manifest.
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct HooksConfig {
+    /// After every finished run (ok or failed, not stopped), with `YARD_*`
+    /// variables describing it.
+    pub on_finish: Option<String>,
 }
 
 /// A systemd timer someone else installed, watched as a read-only tile.
@@ -89,6 +100,7 @@ impl Default for Config {
             bar: BarConfig::default(),
             inspection: None,
             timers: vec![],
+            hooks: HooksConfig::default(),
         }
     }
 }

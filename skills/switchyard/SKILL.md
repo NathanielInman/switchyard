@@ -97,9 +97,12 @@ tonight" or "every morning", and the check needs no judgment:
    one-off). Tell the user what will run and when.
 
 A failed run lights the user's bar and stays in History, so nobody has to
-look for it. A systemd timer that already exists needs no task: a
-`[[timer]] unit = "<name>"` entry in the user's `config.toml` (ask first)
-puts its health on the board. Only work that needs judgment at that later time belongs to an
+look for it, and the user's `hooks.on_finish` (in `config.toml`, if set) may
+file it as a todo; read that hook before promising what a failure does.
+
+A systemd timer that already exists needs no task: a `[[timer]] unit =
+"<name>"` entry in the user's `config.toml` (ask first) puts its health on
+the board. Only work that needs judgment at that later time belongs to an
 agent, and then the user starts it.
 
 ## Diagnose a failed task

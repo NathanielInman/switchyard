@@ -55,6 +55,8 @@ enum Msg {
     InspectActed(PathBuf),
     /// Every watched timer, as just read.
     Timers(Vec<TimerState>),
+    /// The `on_finish` hook ran: `None` when it passed, else why not.
+    Hook(Option<String>),
     Wake,
 }
 
@@ -201,6 +203,8 @@ pub struct Daemon {
     tstate: HashMap<String, TimerState>,
     timers_at: Option<Instant>,
     timers_busy: bool,
+    /// The last `on_finish` hook failure, shown as a problem until one passes.
+    hook_problem: Option<String>,
 }
 
 /// The Inspection tab's state. Idle unless `[inspection]` is configured.
@@ -311,6 +315,45 @@ pub fn local_time(secs: f64) -> String {
     }
 }
 
+/// Runs one hook command with a minute to finish, appending its output to
+/// `hooks.log`. Returns why it failed, if it did.
+fn run_hook_command(shell: &[String], cmd: &str, env: &BTreeMap<String, String>, dir: &Path, head: &str) -> Option<String> {
+    let log_path = paths::state_dir().join("hooks.log");
+    let open = || std::fs::OpenOptions::new().create(true).append(true).open(&log_path);
+    let mut log = open().ok()?;
+    let _ = log.write_all(head.as_bytes());
+    let (Some(prog), Ok(out), Ok(err)) = (shell.first(), open(), open()) else { return None };
+    let mut c = Command::new(prog);
+    c.args(&shell[1..]).arg(cmd).envs(env).current_dir(dir).stdin(std::process::Stdio::null()).stdout(out).stderr(err);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = match c.spawn() {
+        Ok(ch) => ch,
+        Err(e) => return Some(format!("hooks.on_finish could not start: {e}")),
+    };
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(s)) => break Some(s),
+            Ok(None) if start.elapsed() < Duration::from_secs(60) => std::thread::sleep(Duration::from_millis(100)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let log = paths::tilde(&log_path);
+    match status {
+        Some(s) if s.success() => None,
+        Some(s) => Some(format!("hooks.on_finish failed ({s}); see {log}")),
+        None => Some(format!("hooks.on_finish ran past a minute and was stopped; see {log}")),
+    }
+}
+
 /// Where a watched timer's last run's journal is written.
 fn timer_log(id: &str) -> PathBuf {
     paths::state_dir().join("timers").join(format!("{}.log", manifest::unit_safe(id)))
@@ -391,6 +434,7 @@ impl Daemon {
             tstate: HashMap::new(),
             timers_at: None,
             timers_busy: false,
+            hook_problem: None,
         }
     }
 
@@ -429,6 +473,12 @@ impl Daemon {
                     self.inspect_save();
                     self.inspect_history();
                     self.inspect_assemble();
+                }
+                Msg::Hook(p) => {
+                    if self.hook_problem != p {
+                        self.hook_problem = p;
+                        self.dirty = true;
+                    }
                 }
                 Msg::Timers(states) => {
                     self.timers_busy = false;
@@ -1425,8 +1475,53 @@ impl Daemon {
             trigger: if m.scheduled { Trigger::Schedule } else { Trigger::Manual },
         };
         crate::runlog::append(&rec);
+        self.run_hook(&rec, &def.tags, &def.dir);
         self.history_rev += 1;
         self.dirty = true;
+    }
+
+    /// Runs `hooks.on_finish` for a finished run, off the event loop, with
+    /// `YARD_*` variables describing it. Its output goes to `hooks.log`; a
+    /// failure becomes a problem on the board until a later one passes.
+    fn run_hook(&self, rec: &RunRecord, tags: &[String], dir: &Path) {
+        let Some(cmd) = self.cfg.hooks.on_finish.clone().filter(|c| !c.trim().is_empty()) else { return };
+        let outcome = match rec.outcome {
+            Outcome::Ok => "ok",
+            Outcome::Failed => "failed",
+            Outcome::Stopped => return,
+        };
+        let trigger = match rec.trigger {
+            Trigger::Manual => "manual",
+            Trigger::Schedule => "schedule",
+            Trigger::Timer => "timer",
+        };
+        let mut env = self.base_env.clone();
+        for (k, v) in [
+            ("YARD_TASK", rec.task.clone()),
+            ("YARD_LABEL", rec.label.clone()),
+            ("YARD_OUTCOME", outcome.to_string()),
+            ("YARD_TRIGGER", trigger.to_string()),
+            ("YARD_RUN", rec.run.to_string()),
+            ("YARD_STARTED", format!("{:.0}", rec.started)),
+            ("YARD_ENDED", format!("{:.0}", rec.ended)),
+            ("YARD_CODE", rec.code.to_string()),
+            ("YARD_MESSAGE", rec.message.clone().unwrap_or_default()),
+            ("YARD_ERROR", rec.error.as_ref().map(|e| e.text.clone()).unwrap_or_default()),
+            ("YARD_LOG", rec.log.clone().unwrap_or_default()),
+            ("YARD_TAGS", tags.join(" ")),
+            ("YARD_DIR", dir.to_string_lossy().to_string()),
+        ] {
+            env.insert(k.to_string(), v);
+        }
+        let shell = self.shell.clone();
+        let dir = if dir.is_dir() { dir.to_path_buf() } else { paths::home() };
+        let head = format!("===== {} · {} {} ({trigger}) =====\n", local_time(now()), rec.task, outcome);
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            let problem = run_hook_command(&shell, &cmd, &env, &dir, &head);
+            let _ = tx.send(Msg::Hook(problem));
+            let _ = tx.send(Msg::Wake);
+        });
     }
 
     fn history_data(&self, id: Option<&str>, limit: usize) -> yard_core::protocol::HistoryData {
@@ -1677,6 +1772,7 @@ impl Daemon {
             trigger: Trigger::Timer,
         };
         crate::runlog::append(&rec);
+        self.run_hook(&rec, &w.tags, &paths::home());
         self.history_rev += 1;
         self.history.record_start(&id, started);
         self.history.task(&id).last =
@@ -1970,6 +2066,9 @@ impl Daemon {
         let mut tasks = tasks;
         tasks.extend(self.watch.iter().map(|w| self.timer_view(w, t)));
         let mut problems = self.problems.clone();
+        if let Some(p) = &self.hook_problem {
+            problems.push(Problem { file: paths::tilde(&paths::config_file()), message: p.clone() });
+        }
         for w in &self.watch {
             if self.tstate.get(&w.id()).is_some_and(|s| s.scope.is_none()) {
                 problems.push(Problem {

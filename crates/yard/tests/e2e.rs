@@ -434,3 +434,60 @@ fn watched_timers_name_what_they_cannot_find() {
         assert_eq!(t["tags"], serde_json::json!(["scheduled"]));
     }
 }
+
+#[test]
+fn the_finish_hook_hears_every_finished_run() {
+    let sb = Sandbox::new("hooks");
+    let out = sb.root.join("hook.txt");
+    let out_s = out.to_string_lossy().replace('\\', "/");
+    let hook = if cfg!(windows) {
+        format!("echo %YARD_TASK% %YARD_OUTCOME% %YARD_TRIGGER% %YARD_CODE%>> \"{out_s}\"")
+    } else {
+        format!("echo \"$YARD_TASK $YARD_OUTCOME $YARD_TRIGGER $YARD_CODE $YARD_ERROR\" >> '{out_s}'")
+    };
+    let cfg = sb.root.join("config/config.toml");
+    let mut text = std::fs::read_to_string(&cfg).unwrap();
+    text.push_str(&format!("[hooks]\non_finish = {}\n", toml_str(&hook)));
+    std::fs::write(&cfg, text).unwrap();
+    sb.cmd().arg("reload").output().unwrap();
+
+    sb.run("good");
+    sb.wait_for("good", &["ok", "idle"], 30);
+    sb.run("bad");
+    sb.wait_for("bad", &["failed"], 30);
+    let start = Instant::now();
+    let lines = loop {
+        let t = std::fs::read_to_string(&out).unwrap_or_default();
+        if t.lines().count() >= 2 {
+            break t;
+        }
+        assert!(start.elapsed() < Duration::from_secs(20), "the hook did not run twice: {t:?}");
+        std::thread::sleep(Duration::from_millis(150));
+    };
+    assert!(lines.lines().any(|l| l.trim() == "good ok manual 0"), "{lines}");
+    let bad = lines.lines().find(|l| l.starts_with("bad ")).unwrap_or_default();
+    assert!(bad.starts_with("bad failed manual 3"), "{lines}");
+    if !cfg!(windows) {
+        assert!(bad.contains("the build broke"), "{lines}");
+    }
+
+    // A failing hook is a problem on the board, not a silent one.
+    let mut text = std::fs::read_to_string(&cfg).unwrap();
+    text = text.replace(&format!("on_finish = {}", toml_str(&hook)), "on_finish = \"exit 7\"");
+    std::fs::write(&cfg, text).unwrap();
+    sb.cmd().arg("reload").output().unwrap();
+    sb.run("good");
+    let start = Instant::now();
+    loop {
+        let o = sb.cmd().arg("ls").output().unwrap();
+        if String::from_utf8_lossy(&o.stderr).contains("hooks.on_finish failed") {
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(20), "no hook problem: {o:?}");
+        std::thread::sleep(Duration::from_millis(150));
+    }
+}
+
+fn toml_str(s: &str) -> String {
+    format!("'''{s}'''")
+}

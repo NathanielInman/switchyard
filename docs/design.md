@@ -263,6 +263,32 @@ problem on the board.
   `yard adopt cron` writes, so everything that runs on its own shares a tab;
   a `systemd` badge marks the ones Switchyard only watches.
 
+### Hooks
+
+`hooks.on_finish` in the config is a command the daemon runs, through the
+configured shell, after every run that finished ok or failed (not one that
+was stopped): tasks, scheduled and one-off runs, and watched timers alike. It
+is how a result leaves the board, for example to file a todo when a nightly
+job fails and close it when the job passes again. Only the global config can
+set it, never a repo's manifest.
+
+The command gets the daemon's environment plus:
+
+| Variable | Value |
+|---|---|
+| `YARD_TASK`, `YARD_LABEL` | the task id and its tile name |
+| `YARD_OUTCOME` | `ok` or `failed` |
+| `YARD_TRIGGER` | `manual` (the board, the CLI), `schedule` (a `schedule` or `--at`) or `timer` (a watched timer) |
+| `YARD_CODE`, `YARD_MESSAGE`, `YARD_ERROR` | the exit code, the short reason ("exit 3 in step 1 of 1") and the first error line |
+| `YARD_LOG` | this run's own copy of its log |
+| `YARD_RUN`, `YARD_STARTED`, `YARD_ENDED` | the run id and its times in unix seconds |
+| `YARD_TAGS`, `YARD_DIR` | the task's tags (space-separated) and directory |
+
+It runs off the event loop with a minute to finish, in the task's directory,
+and its output goes to `~/.local/state/switchyard/hooks.log`. A hook that
+exits non-zero or runs past the minute is a problem on the board until a
+later one passes, so a broken hook does not fail quietly.
+
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.
@@ -496,6 +522,7 @@ state, logs and run files in `%LOCALAPPDATA%\switchyard`.
 | `~/.local/state/switchyard/state.json` | History: last results, durations, parameter history, frecency, shelf choices. |
 | `~/.local/state/switchyard/logs/<task>.log` | Default log location. The previous run is kept as `<task>.log.1`. |
 | `~/.local/state/switchyard/timers/<id>.log` | A watched timer's last run, from the journal. |
+| `~/.local/state/switchyard/hooks.log` | What `hooks.on_finish` printed, run by run. |
 | `~/.local/state/switchyard/inspection.json` | Inspection cache: per repo, the HEAD it was read at and per-month counts. Only with `[inspection]`. |
 | `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket (macOS: under `$TMPDIR`; Windows: `yard.port`, a localhost port and token). |
 | `$XDG_RUNTIME_DIR/switchyard/runs/` | Run specs, exit files, scratch directories. |
@@ -574,6 +601,13 @@ foreign_author = "act"
 
 When no `[[tab]]` is configured there is one tab, "All". History and Shelf
 follow the configured tabs, then Inspection when configured, Shelf last.
+
+A command run after every finished run; see Hooks:
+
+```toml
+[hooks]
+on_finish = "~/.config/switchyard/bin/on-finish.sh"
+```
 
 Watched timers, one table each (Linux):
 
