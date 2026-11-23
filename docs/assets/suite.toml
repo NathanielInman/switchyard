@@ -1,0 +1,28 @@
+# What dot-files needs to know about Switchyard. Its README is built from this
+# file (docs/bar/build.py in NathanielInman/dotfiles reads it beside the
+# hero), so a change here reaches that README on its next build.
+
+name = "Switchyard"
+repo = "https://github.com/NathanielInman/switchyard"
+language = "Rust"
+# Its module in packages/waybar/.config/waybar/config.jsonc.
+module = "custom/switchyard"
+# "Switchyard for <purpose>" in the README's list of the suite.
+purpose = "builds and deploys"
+# The "In the bar" cell of the suite table.
+lamp = "The build signal: blue at rest, amber building, green or red when it ends"
+# Scripts and programs it replaced. dot-files' build fails if a doc still
+# mentions one outside a sentence that says it was replaced.
+retired = []
+# Its stow package in dot-files, or "" when it needs none.
+stow = "switchyard"
+# Install from a clean Arch machine, run in order.
+install = [
+  "sudo pacman -S --needed gtk4 gtk4-layer-shell libnotify",
+  "git clone https://github.com/NathanielInman/switchyard.git ~/Sites/switchyard",
+  "~/Sites/switchyard/install.sh   # installs yard and yard-board, runs yard setup",
+]
+# Run after installing (and stowing) to check the setup.
+check = [
+  "yard doctor",
+]
