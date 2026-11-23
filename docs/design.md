@@ -44,6 +44,7 @@ tour; this is the spec.
 | Heavy | A task whose steps need the main line. Only one heavy build runs at a time. |
 | Main line | The single slot heavy builds take turns on, guarded by a free-memory check. |
 | Schedule | When a task runs on its own: `hourly`, `03:00`, five cron fields. |
+| Watched timer | A systemd timer someone else installed, shown as a read-only tile. |
 | Board | The panel window. |
 | Shelf | A dense list for tasks you rarely run, CLI tools and key binds. |
 | Inspection | The optional tab with one row per repo under `inspection.roots`. |
@@ -232,6 +233,33 @@ existing `cron.toml`; it prints the lines to remove once the tasks have run,
 since until then cron and Switchyard both run them. `--print` shows the file
 without writing it.
 
+### Watched timers
+
+Timers that other repos or the distro install (a backup pull, a certificate
+renewal, a btrfs scrub) keep their own units; Switchyard only watches them.
+Each `[[timer]]` in the config becomes a tile with the same lamp, last result,
+next run, log and History as a task, on Linux; elsewhere the entries are a
+problem on the board.
+
+- **Reading.** Every 30 seconds (every 2 while one is running) a worker
+  thread runs `systemctl show --timestamp=unix` for all watched timers and
+  their services at once: the user manager first, the system manager for the
+  rest. A name neither knows is a problem on the board.
+- **Runs.** A service that is running lights the tile as running. One that
+  finished after the last run History knows of becomes a History record
+  (`trigger: timer`) whose log is the service's journal for that run, read
+  with `journalctl -o cat` so the error matchers find the first real error.
+  A failure turns the tile red and lights the bar; it notifies only when it
+  finished in the last five minutes, so an old failure found at start does
+  not pop up.
+- **Since boot.** systemd forgets a service's last run at reboot, so a timer
+  that has not fired since shows its next run and whatever History already
+  holds.
+- **Acting.** Running a watched tile starts its service now with
+  `systemctl --user start --no-block`, and stopping stops it. System units
+  need root, so for them the board says the command instead. Switchyard never
+  edits, enables or disables a unit.
+
 ### Anchoring
 
 Waybar does not publish module geometry, so Switchyard asks the compositor.
@@ -280,7 +308,7 @@ Every finished run appends one JSON line to
 `~/.local/state/switchyard/history/runs.jsonl` (outcome and exit code, the
 first error, each step's time and attempts, time in the main-line queue, peak
 memory and the cap, params and variant, the commit and branch at start, and
-its `trigger`: `manual` or `schedule`) and
+its `trigger`: `manual`, `schedule` or `timer`) and
 keeps a copy of the end of its log under `history/logs/<task>/<run>.log`, the
 newest 20 per task. The file is trimmed by half past 8 MB.
 
@@ -464,6 +492,7 @@ state, logs and run files in `%LOCALAPPDATA%\switchyard`.
 | `<repo>/.yard.toml` | A repo's own manifest, found through `scan`. |
 | `~/.local/state/switchyard/state.json` | History: last results, durations, parameter history, frecency, shelf choices. |
 | `~/.local/state/switchyard/logs/<task>.log` | Default log location. The previous run is kept as `<task>.log.1`. |
+| `~/.local/state/switchyard/timers/<id>.log` | A watched timer's last run, from the journal. |
 | `~/.local/state/switchyard/inspection.json` | Inspection cache: per repo, the HEAD it was read at and per-month counts. Only with `[inspection]`. |
 | `$XDG_RUNTIME_DIR/switchyard/yard.sock` | Daemon socket (macOS: under `$TMPDIR`; Windows: `yard.port`, a localhost port and token). |
 | `$XDG_RUNTIME_DIR/switchyard/runs/` | Run specs, exit files, scratch directories. |
@@ -542,6 +571,17 @@ foreign_author = "act"
 
 When no `[[tab]]` is configured there is one tab, "All". History and Shelf
 follow the configured tabs, then Inspection when configured, Shelf last.
+
+Watched timers, one table each (Linux):
+
+```toml
+[[timer]]
+unit = "plos-origins-pull-backups"   # the timer, with or without .timer
+label = "plos backups pull"          # tile name; defaults to the unit name
+description = "copy the Linode's backups"  # defaults to the unit's Description
+id = "plos-backups"                  # defaults to the name, '@' and the like as '-'
+tags = ["timers"]                    # the default
+```
 
 ## Manifest reference
 

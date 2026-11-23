@@ -141,6 +141,9 @@ pub struct TaskView {
     /// The next run as a board shows it: "03:00", "Tue 03:00", "Dec 1".
     #[serde(default)]
     pub next_label: Option<String>,
+    /// A systemd timer Switchyard only watches: no steps, params or variants.
+    #[serde(default)]
+    pub watched: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

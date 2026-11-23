@@ -11,6 +11,7 @@ mod setup;
 mod spec;
 mod supervise;
 mod sys;
+mod timers;
 
 use anyhow::Result;
 

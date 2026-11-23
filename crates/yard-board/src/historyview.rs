@@ -633,6 +633,7 @@ impl HistoryView {
                 ("scheduled".to_string(), format!("queued {}", yard_core::model::clock(r.queued_secs)))
             }
             Trigger::Schedule => ("scheduled".to_string(), "started on its own".to_string()),
+            Trigger::Timer => ("timer".to_string(), "run by systemd".to_string()),
             Trigger::Manual => (format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".to_string()),
         };
         let git = r

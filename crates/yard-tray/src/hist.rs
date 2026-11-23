@@ -428,6 +428,7 @@ impl HistState {
                     ("scheduled".into(), format!("queued {}", yard_core::model::clock(r.queued_secs)))
                 }
                 Trigger::Schedule => ("scheduled".into(), "started on its own".into()),
+                Trigger::Timer => ("timer".into(), "run by systemd".into()),
                 Trigger::Manual => (format!("queued {}", yard_core::model::clock(r.queued_secs)), "on the main line".into()),
             });
             if let Some(g) = &r.git {

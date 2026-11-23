@@ -407,3 +407,30 @@ fn one_off_runs_fire_survive_restarts_and_cancel() {
     assert!(!sb.cmd().args(["run", "good", "--at", "whenever"]).output().unwrap().status.success());
     assert!(!sb.cmd().args(["run", "good", "--at", "2001-01-01 00:00"]).output().unwrap().status.success());
 }
+
+#[test]
+fn watched_timers_name_what_they_cannot_find() {
+    let sb = Sandbox::new("timers");
+    let cfg = sb.root.join("config/config.toml");
+    let mut text = std::fs::read_to_string(&cfg).unwrap();
+    text.push_str("[[timer]]\nunit = \"yard-e2e-no-such-unit.timer\"\nlabel = \"missing\"\n");
+    std::fs::write(&cfg, text).unwrap();
+    sb.cmd().arg("reload").output().unwrap();
+    let want = if cfg!(target_os = "linux") { "no such timer" } else { "Linux only" };
+    let start = Instant::now();
+    loop {
+        let o = sb.cmd().arg("ls").output().unwrap();
+        let err = String::from_utf8_lossy(&o.stderr).to_string();
+        if err.contains(want) {
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(20), "no problem about the timer: {err}");
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    if cfg!(target_os = "linux") {
+        let t = sb.task("yard-e2e-no-such-unit");
+        assert_eq!(t["watched"], true, "{t}");
+        assert_eq!(t["label"], "missing");
+        assert_eq!(t["tags"], serde_json::json!(["timers"]));
+    }
+}

@@ -28,6 +28,44 @@ pub struct Config {
     pub bar: BarConfig,
     /// The optional Inspection tab; `None` turns it and its scanning off.
     pub inspection: Option<crate::inspect::InspectionConfig>,
+    /// systemd timers shown as read-only tiles (Linux).
+    #[serde(rename = "timer")]
+    pub timers: Vec<TimerConfig>,
+}
+
+/// A systemd timer someone else installed, watched as a read-only tile.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TimerConfig {
+    /// The timer unit, with or without `.timer`. User units are looked up
+    /// first, then system ones.
+    pub unit: String,
+    pub id: Option<String>,
+    pub label: Option<String>,
+    pub description: Option<String>,
+    #[serde(default = "timer_tags")]
+    pub tags: Vec<String>,
+}
+
+fn timer_tags() -> Vec<String> {
+    vec!["timers".into()]
+}
+
+impl TimerConfig {
+    /// `btrfs-scrub@data`, without `.timer`.
+    pub fn name(&self) -> &str {
+        self.unit.strip_suffix(".timer").unwrap_or(&self.unit)
+    }
+
+    /// The tile's id: `id`, or the unit's name with anything an id cannot
+    /// hold turned into `-` (`btrfs-scrub@data` is `btrfs-scrub-data`).
+    pub fn id(&self) -> String {
+        if let Some(i) = &self.id {
+            return i.clone();
+        }
+        let s: String = self.name().chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '-' }).collect();
+        s.trim_matches('-').to_string()
+    }
 }
 
 impl Default for Config {
@@ -48,6 +86,7 @@ impl Default for Config {
             shelf: ShelfConfig::default(),
             bar: BarConfig::default(),
             inspection: None,
+            timers: vec![],
         }
     }
 }

@@ -75,8 +75,10 @@ pub enum Trigger {
     /// The board, the CLI or a restart.
     #[default]
     Manual,
-    /// The task's `schedule`.
+    /// The task's `schedule` or a one-off `--at` run.
     Schedule,
+    /// A watched systemd timer's own run.
+    Timer,
 }
 
 impl RunRecord {

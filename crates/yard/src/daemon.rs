@@ -4,6 +4,7 @@ use crate::history::{History, Later};
 use crate::spec::{exit_file, spec_file, RunSpec};
 use crate::supervise::{self, Ended, Handle, Spawn, Supervisor};
 use crate::sys;
+use crate::timers::{self, TimerState};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -13,7 +14,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::{Duration, Instant};
-use yard_core::config::Config;
+use yard_core::config::{Config, TimerConfig};
 use yard_core::errors::{failing_section, find_first_error, ErrorHit};
 use yard_core::history::{GitRef, RunRecord, StepTime, Trigger};
 use yard_core::inspect::{InspectionData, Signals, Status};
@@ -52,6 +53,8 @@ enum Msg {
     InspectHistoryDone,
     /// Inspection: an action finished in this repo; read it again.
     InspectActed(PathBuf),
+    /// Every watched timer, as just read.
+    Timers(Vec<TimerState>),
     Wake,
 }
 
@@ -193,6 +196,11 @@ pub struct Daemon {
     insp: Insp,
     /// Schedules have been planned once; catch-up only happens on that pass.
     planned: bool,
+    /// Watched timers from the config that are usable (valid, unique ids).
+    watch: Vec<TimerConfig>,
+    tstate: HashMap<String, TimerState>,
+    timers_at: Option<Instant>,
+    timers_busy: bool,
 }
 
 /// The Inspection tab's state. Idle unless `[inspection]` is configured.
@@ -303,6 +311,11 @@ pub fn local_time(secs: f64) -> String {
     }
 }
 
+/// Where a watched timer's last run's journal is written.
+fn timer_log(id: &str) -> PathBuf {
+    paths::state_dir().join("timers").join(format!("{}.log", manifest::unit_safe(id)))
+}
+
 fn random_u64() -> u64 {
     use std::hash::{BuildHasher, Hasher};
     let mut h = std::collections::hash_map::RandomState::new().build_hasher();
@@ -369,6 +382,10 @@ impl Daemon {
             base_env: BTreeMap::new(),
             insp: Insp::default(),
             planned: false,
+            watch: vec![],
+            tstate: HashMap::new(),
+            timers_at: None,
+            timers_busy: false,
         }
     }
 
@@ -407,6 +424,10 @@ impl Daemon {
                     self.inspect_save();
                     self.inspect_history();
                     self.inspect_assemble();
+                }
+                Msg::Timers(states) => {
+                    self.timers_busy = false;
+                    self.apply_timers(states);
                 }
                 Msg::InspectActed(dir) => {
                     self.insp.cache.remove(&dir.to_string_lossy().to_string());
@@ -453,7 +474,14 @@ impl Daemon {
         for t in &self.tasks {
             self.rt.entry(t.id.clone()).or_insert_with(|| TaskRt { since: now(), ..Default::default() });
         }
-        let ids: Vec<String> = self.tasks.iter().map(|t| t.id.clone()).collect();
+        self.watch = self.usable_timers();
+        for w in &self.watch {
+            self.rt.entry(w.id()).or_insert_with(|| TaskRt { since: now(), ..Default::default() });
+        }
+        let watched: Vec<String> = self.watch.iter().map(|w| w.id()).collect();
+        self.tstate.retain(|k, _| watched.contains(k));
+        self.timers_at = None;
+        let ids: Vec<String> = self.tasks.iter().map(|t| t.id.clone()).chain(watched).collect();
         self.rt.retain(|k, _| ids.contains(k));
         self.queue.retain(|k| ids.contains(k));
         self.plan(!self.planned);
@@ -761,6 +789,9 @@ impl Daemon {
     // ----------------------------------------------------------- running
 
     fn request_run(&mut self, id: &str, p: Pending) -> Reply {
+        if self.watch.iter().any(|w| w.id() == id) {
+            return self.control_timer(id, "start");
+        }
         let Some(def) = self.def(id).cloned() else {
             return Reply::err(format!("no task named \"{id}\""));
         };
@@ -1081,6 +1112,9 @@ impl Daemon {
     }
 
     fn stop(&mut self, id: &str) -> Reply {
+        if self.watch.iter().any(|w| w.id() == id) {
+            return self.control_timer(id, "stop");
+        }
         let Some(label) = self.def(id).map(|d| d.label.clone()) else {
             return Reply::err(format!("no task named \"{id}\""));
         };
@@ -1426,6 +1460,12 @@ impl Daemon {
         }
         self.scan_captures();
         self.fire_due(t);
+        // Watched timers: every 30 seconds, every 2 while one is running.
+        let busy = self.tstate.values().any(|s| s.active);
+        let every = Duration::from_secs(if busy { 2 } else { 30 });
+        if !self.watch.is_empty() && !self.timers_busy && self.timers_at.is_none_or(|a| a.elapsed() >= every) {
+            self.refresh_timers();
+        }
         if !self.queue.is_empty() && self.mainline.is_none() {
             self.schedule();
         }
@@ -1516,6 +1556,206 @@ impl Daemon {
             self.history_dirty = true;
             self.dirty = true;
             let _ = self.request_run(&id, Pending { params: l.params, variant: l.variant, clean: l.clean, scheduled: true });
+        }
+    }
+
+    // ----------------------------------------------------------- watched timers
+
+    /// The `[[timer]]` entries that can become tiles, with a problem for each
+    /// that cannot.
+    fn usable_timers(&mut self) -> Vec<TimerConfig> {
+        let file = paths::tilde(&paths::config_file());
+        let mut out: Vec<TimerConfig> = vec![];
+        if !cfg!(target_os = "linux") && !self.cfg.timers.is_empty() {
+            self.problems.push(Problem { file, message: "[[timer]] entries are watched on Linux only".into() });
+            return out;
+        }
+        for w in &self.cfg.timers {
+            let id = w.id();
+            let why = if !manifest::valid_id(&id) {
+                Some(format!("timer \"{}\": id \"{id}\" may only use letters, digits, '-', '_' and '.'; set `id`", w.unit))
+            } else if self.tasks.iter().any(|t| t.id == id) || out.iter().any(|o| o.id() == id) {
+                Some(format!("timer \"{}\": the id \"{id}\" is taken; set `id`", w.unit))
+            } else {
+                None
+            };
+            match why {
+                Some(m) => self.problems.push(Problem { file: file.clone(), message: m }),
+                None => out.push(w.clone()),
+            }
+        }
+        out
+    }
+
+    fn refresh_timers(&mut self) {
+        self.timers_busy = true;
+        self.timers_at = Some(Instant::now());
+        let watch: Vec<(String, String)> = self.watch.iter().map(|w| (w.id(), w.name().to_string())).collect();
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(Msg::Timers(timers::read(&watch)));
+        });
+    }
+
+    /// Folds a fresh read into the tiles. A run that finished since the last
+    /// one History knows of becomes a record, with its journal as the log.
+    fn apply_timers(&mut self, states: Vec<TimerState>) {
+        for s in states {
+            let Some(w) = self.watch.iter().find(|w| w.id() == s.id).cloned() else { continue };
+            let id = s.id.clone();
+            if self.tstate.get(&id) != Some(&s) {
+                self.dirty = true;
+            }
+            self.tstate.insert(id.clone(), s.clone());
+            if s.scope.is_none() {
+                continue;
+            }
+            let r = self.rt(&id);
+            if s.active {
+                if r.phase != Phase::Running {
+                    r.set(Phase::Running);
+                    r.since = s.started.unwrap_or_else(now);
+                    r.message = None;
+                }
+                continue;
+            }
+            if r.phase == Phase::Running {
+                r.set(Phase::Idle);
+            }
+            let Some((outcome, message)) = s.outcome() else { continue };
+            let exited = s.exited.unwrap_or_else(now);
+            let seen = self.history.tasks.get(&id).and_then(|h| h.last.as_ref()).map(|l| l.at);
+            if seen.is_some_and(|a| exited <= a + 0.5) {
+                continue;
+            }
+            self.timer_finished(&w, &s, outcome, message, exited);
+        }
+    }
+
+    fn timer_finished(&mut self, w: &TimerConfig, s: &TimerState, outcome: Outcome, message: String, exited: f64) {
+        let id = w.id();
+        let label = w.label.clone().unwrap_or_else(|| w.name().to_string());
+        let started = s.started.unwrap_or(exited);
+        let scope = s.scope.unwrap_or(timers::Scope::User);
+        let log = timer_log(&id);
+        if let Some(d) = log.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let mut text = format!("===== switchyard · {label} · {} =====\n", local_time(started));
+        text.push_str(&timers::journal(scope, &s.service, started, exited));
+        let _ = std::fs::write(&log, &text);
+        let error = (outcome == Outcome::Failed).then(|| find_first_error(&text.lines().collect::<Vec<_>>(), &[], None)).flatten();
+        let message = (!message.is_empty()).then_some(message);
+        let t = now();
+        let run = exited as u64;
+        let rec = RunRecord {
+            run,
+            task: id.clone(),
+            label: label.clone(),
+            requested: started,
+            started,
+            ended: exited,
+            outcome,
+            code: if outcome == Outcome::Ok { 0 } else { s.status.max(1) },
+            message: message.clone(),
+            error: error.clone(),
+            steps: vec![],
+            queued_secs: 0.0,
+            build_secs: 0.0,
+            run_secs: (exited - started).max(0.0),
+            peak_mem: None,
+            mem_cap: None,
+            params: BTreeMap::new(),
+            variant: None,
+            git: None,
+            log: crate::runlog::archive_log(&log, &id, run),
+            trigger: Trigger::Timer,
+        };
+        crate::runlog::append(&rec);
+        self.history_rev += 1;
+        self.history.record_start(&id, started);
+        self.history.task(&id).last =
+            Some(LastRun { outcome, at: exited, duration: (exited - started).max(0.0), message: message.clone() });
+        self.history_dirty = true;
+        self.dirty = true;
+        let r = self.rt(&id);
+        match outcome {
+            Outcome::Ok => {
+                r.set(if t - exited < 60.0 { Phase::Ok } else { Phase::Idle });
+                r.message = None;
+                r.error = None;
+            }
+            _ => {
+                r.set(Phase::Failed);
+                r.message = message.clone();
+                r.error = error.clone();
+                // An old failure seen at start lights the tile; only a fresh one pops up.
+                if t - exited < 300.0 {
+                    let body = [message.unwrap_or_default(), error.map(|e| e.text).unwrap_or_default()].join("\n");
+                    sys::notify(&format!("{label} failed"), body.trim(), "critical");
+                }
+            }
+        }
+    }
+
+    fn control_timer(&mut self, id: &str, verb: &str) -> Reply {
+        let Some(s) = self.tstate.get(id).cloned() else {
+            return Reply::err(format!("{id} has not been read yet; try again in a moment"));
+        };
+        let Some(scope) = s.scope else {
+            return Reply::err(format!("{id}: no such timer"));
+        };
+        match timers::control(scope, verb, &s.service) {
+            Ok(()) => {
+                self.timers_at = None;
+                Reply::msg(format!("{} {}", if verb == "start" { "started" } else { "stopping" }, s.service))
+            }
+            Err(e) => Reply::err(e),
+        }
+    }
+
+    fn timer_view(&self, w: &TimerConfig, t: f64) -> TaskView {
+        let id = w.id();
+        let empty = TaskRt::default();
+        let r = self.rt.get(&id).unwrap_or(&empty);
+        let s = self.tstate.get(&id);
+        let service = s.map(|s| s.service.clone()).unwrap_or_default();
+        let user = s.and_then(|s| s.scope) != Some(timers::Scope::System);
+        TaskView {
+            id: id.clone(),
+            label: w.label.clone().unwrap_or_else(|| w.name().to_string()),
+            description: w.description.clone().or_else(|| s.map(|s| s.description.clone()).filter(|d| !d.is_empty())).unwrap_or_default(),
+            tags: w.tags.clone(),
+            pin: None,
+            heavy: false,
+            confirm: yard_core::manifest::Confirm::None,
+            shelf: false,
+            stale: false,
+            phase: r.phase,
+            since: r.since,
+            step: None,
+            message: r.message.clone(),
+            error: r.error.clone(),
+            mem: None,
+            cpu: None,
+            mem_history: vec![],
+            last: self.history.tasks.get(&id).and_then(|h| h.last.clone()),
+            typical: None,
+            params: vec![],
+            variants: vec![],
+            has_clean: false,
+            has_run: false,
+            log: timer_log(&id).to_string_lossy().to_string(),
+            dir: paths::home().to_string_lossy().to_string(),
+            git: None,
+            last_used: self.history.last_used(&id),
+            frecency: 0.0,
+            queue_pos: None,
+            command: format!("systemctl {}start {service}", if user { "--user " } else { "" }),
+            schedule: Some(format!("{}.timer", w.name())),
+            next_run: s.and_then(|s| s.next),
+            next_label: s.and_then(|s| s.next).map(|n| yard_core::schedule::next_label(n, t)),
+            watched: true,
         }
     }
 
@@ -1710,6 +1950,7 @@ impl Daemon {
                     command: def.command_preview(),
                     schedule: def.schedule.as_ref().map(|s| s.text().to_string()),
                     next_run: next.map(|(n, _)| n),
+                    watched: false,
                     next_label: next.map(|(n, once)| {
                         let l = yard_core::schedule::next_label(n, t);
                         if once {
@@ -1721,6 +1962,17 @@ impl Daemon {
                 }
             })
             .collect();
+        let mut tasks = tasks;
+        tasks.extend(self.watch.iter().map(|w| self.timer_view(w, t)));
+        let mut problems = self.problems.clone();
+        for w in &self.watch {
+            if self.tstate.get(&w.id()).is_some_and(|s| s.scope.is_none()) {
+                problems.push(Problem {
+                    file: paths::tilde(&paths::config_file()),
+                    message: format!("timer \"{}\": no such timer in the user or system manager", w.unit),
+                });
+            }
+        }
         let mem = sys::meminfo();
         let mainline = MainlineView {
             current: self.mainline.clone(),
@@ -1743,7 +1995,7 @@ impl Daemon {
             mainline,
             aggregate,
             tabs,
-            problems: self.problems.clone(),
+            problems,
             board: self.cfg.board.clone(),
             has_editor: !self.cfg.editor.is_empty(),
             has_terminal: !self.cfg.terminal.is_empty(),
