@@ -354,6 +354,11 @@ impl Tile {
                 add(g.branch.clone(), None);
             }
         }
+        if v.watched {
+            // systemd runs it; Switchyard only watches.
+            add("systemd".into(), None);
+            any = true;
+        }
         if v.confirm == Confirm::Hold {
             add("hold".into(), Some("warn"));
             any = true;

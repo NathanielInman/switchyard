@@ -223,7 +223,7 @@ schedule, whose result lives on the board, rather than an agent woken later to
 look.
 
 `yard adopt cron` reads `crontab -l` (or `--from <file>`) and writes
-`tasks.d/cron.toml` with one scheduled task per job, tagged `cron`, with
+`tasks.d/cron.toml` with one scheduled task per job, tagged `scheduled`, with
 `catch_up = true` in its `[defaults]`. Each task's id comes from its script's
 name, its description from the comment above the line. `NAME=value` lines
 become the tasks' `env`, except cron's own (`MAILTO`, `SHELL`, `CRON_TZ`).
@@ -259,6 +259,9 @@ problem on the board.
   `systemctl --user start --no-block`, and stopping stops it. System units
   need root, so for them the board says the command instead. Switchyard never
   edits, enables or disables a unit.
+- **One tab.** `[[timer]]` tiles default to the tag `scheduled`, the one
+  `yard adopt cron` writes, so everything that runs on its own shares a tab;
+  a `systemd` badge marks the ones Switchyard only watches.
 
 ### Anchoring
 
@@ -580,7 +583,7 @@ unit = "plos-origins-pull-backups"   # the timer, with or without .timer
 label = "plos backups pull"          # tile name; defaults to the unit name
 description = "copy the Linode's backups"  # defaults to the unit's Description
 id = "plos-backups"                  # defaults to the name, '@' and the like as '-'
-tags = ["timers"]                    # the default
+tags = ["scheduled"]                 # the default, shared with yard adopt cron
 ```
 
 ## Manifest reference

@@ -431,6 +431,6 @@ fn watched_timers_name_what_they_cannot_find() {
         let t = sb.task("yard-e2e-no-such-unit");
         assert_eq!(t["watched"], true, "{t}");
         assert_eq!(t["label"], "missing");
-        assert_eq!(t["tags"], serde_json::json!(["timers"]));
+        assert_eq!(t["tags"], serde_json::json!(["scheduled"]));
     }
 }

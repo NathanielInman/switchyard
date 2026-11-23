@@ -47,8 +47,10 @@ pub struct TimerConfig {
     pub tags: Vec<String>,
 }
 
+/// The same tag `yard adopt cron` gives, so everything that runs on its own
+/// shares one tab.
 fn timer_tags() -> Vec<String> {
-    vec!["timers".into()]
+    vec!["scheduled".into()]
 }
 
 impl TimerConfig {

@@ -156,7 +156,7 @@ pub fn overlay(tab: &Crontab, date: &str) -> String {
          # crontab (crontab -e) once the first runs show up on the board, or cron\n\
          # and Switchyard will both run them.\n\n\
          [defaults]\n\
-         tags = [\"cron\"]\n\
+         tags = [\"scheduled\"]\n\
          dir = \"~\"\n\
          notify = \"failure\"\n\
          # A run missed while the daemon was down or the machine asleep happens\n\
@@ -316,7 +316,7 @@ PATH=/usr/bin:/bin
         assert_eq!(b.schedule.as_ref().unwrap().text(), "0 3 * * *");
         assert_eq!(b.label, "sites nightly backup");
         assert!(b.catch_up);
-        assert_eq!(b.tags, vec!["cron"]);
+        assert_eq!(b.tags, vec!["scheduled"]);
         assert_eq!(b.env["PATH"], "/usr/bin:/bin");
         assert!(text.contains("# Not adopted: @reboot"), "{text}");
         assert!(text.contains("#   @reboot /usr/bin/thing"), "{text}");
