@@ -365,3 +365,45 @@ steps = ["{ok}"]
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("already exists"));
 }
+
+#[test]
+fn one_off_runs_fire_survive_restarts_and_cancel() {
+    let mut sb = Sandbox::new("once");
+    let at = |id: &str, when: &str| {
+        let o = sb.cmd().args(["run", id, "--at", when]).output().unwrap();
+        assert!(o.status.success(), "{o:?}");
+        String::from_utf8_lossy(&o.stdout).to_string()
+    };
+
+    // A run booked two seconds out happens by itself and counts as scheduled.
+    let out = at("good", "in 2s");
+    assert!(out.contains("runs once at"), "{out}");
+    assert!(sb.task("good")["next_label"].as_str().unwrap_or("").ends_with(" once"), "{}", sb.task("good"));
+    let start = Instant::now();
+    loop {
+        let t = sb.task("good");
+        if t["last"]["outcome"] == "ok" {
+            assert!(t["next_run"].is_null(), "{t}");
+            break;
+        }
+        assert!(start.elapsed() < Duration::from_secs(30), "the one-off never ran: {t}");
+        std::thread::sleep(Duration::from_millis(150));
+    }
+    let o = sb.cmd().args(["history", "good", "--json"]).output().unwrap();
+    let h: Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(h["records"][0]["trigger"], "schedule", "{h}");
+
+    // A booking survives a restart, and stop cancels it.
+    at("bad", "in 1h");
+    sb.stop_daemon();
+    sb.start();
+    assert!(sb.task("bad")["next_label"].as_str().unwrap_or("").ends_with(" once"), "{}", sb.task("bad"));
+    let o = sb.cmd().args(["stop", "bad"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&o.stdout).contains("cancelled"), "{o:?}");
+    assert!(sb.task("bad")["next_run"].is_null());
+    assert!(sb.task("bad")["last"].is_null());
+
+    // Nonsense and the past are refused before they reach the daemon.
+    assert!(!sb.cmd().args(["run", "good", "--at", "whenever"]).output().unwrap().status.success());
+    assert!(!sb.cmd().args(["run", "good", "--at", "2001-01-01 00:00"]).output().unwrap().status.success());
+}

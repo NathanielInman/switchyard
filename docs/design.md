@@ -203,6 +203,24 @@ and leaves the task runnable by hand.
   next 03:00"), and `yard ls` prints the same. A scheduled task is never
   offered the stale Shelf hint.
 
+**One-off runs.** `yard run <id> --at <when>` books a single run of a task:
+`18:00` (the next one), `today 18:00`, `tomorrow 08:00`, `fri 17:30` (the
+next Friday), `2026-11-24 08:00` or `in 30m` (also `in 2h`, `in 1d`). The CLI
+turns that into unix seconds and sends `run_at`. A task holds one booking at a
+time; a new one replaces it, and `yard stop <id>` cancels it while the task is
+not running. Bookings live in `state.json`, so they survive a restart, and one
+that falls due while the daemon is down runs as soon as it is back, however
+late: someone asked for it. At its time the run starts like a click with the
+booked params and variant; a task still building or queued then gets it on the
+next tick, and a running one restarts. It counts as scheduled (quiet on
+success, `trigger: schedule` in History), and the tile reads "next 18:00 once"
+until then.
+
+This is how deferred work belongs on the machine: a check that needs no
+judgment ("did last night's backup pass?") is a script run once or on a
+schedule, whose result lives on the board, rather than an agent woken later to
+look.
+
 `yard adopt cron` reads `crontab -l` (or `--from <file>`) and writes
 `tasks.d/cron.toml` with one scheduled task per job, tagged `cron`, with
 `catch_up = true` in its `[defaults]`. Each task's id comes from its script's
@@ -642,6 +660,7 @@ events.
 
 ```json
 {"cmd":"run","id":"hollowdeep","params":{"seed":"7731904"},"variant":null}
+{"cmd":"run_at","id":"hollowdeep","at":1795500000,"params":{}}
 {"cmd":"stop","id":"undertow"}
 {"cmd":"ack","phase":"open"}
 {"cmd":"toggle","anchor":{"monitor":"DP-2","edge":"bottom","x":2310,"y":1428,"reserved":[0,0,0,24]}}

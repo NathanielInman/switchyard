@@ -135,7 +135,7 @@ cargo build && examples/demo/run-demo.sh
 | | |
 |---|---|
 | **History** | Every run is recorded with its step times, retries, queue wait, peak memory and commit, and folded into episodes by day: "broken for 18m, fixed by 3f2a1c", "9 ok, 23% slower in next build". Open a task's strip to see every run as a bar against its usual time, and any past run's own log. `yard history` prints the same in a terminal. |
-| **Schedules** | `schedule = "03:00"` (or `hourly`, `mon-fri 09:00`, `every 15m`, five cron fields) runs a task on its own, with the same log, lamp and History as a click. `catch_up = true` runs a slot missed while you were logged out once you are back. `yard adopt cron` turns your crontab into scheduled tasks and tells you which lines to remove. |
+| **Schedules** | `schedule = "03:00"` (or `hourly`, `mon-fri 09:00`, `every 15m`, five cron fields) runs a task on its own, with the same log, lamp and History as a click. `catch_up = true` runs a slot missed while you were logged out once you are back. `yard run <id> --at 18:00` (or `tomorrow 08:00`, `in 30m`) books a single run instead. `yard adopt cron` turns your crontab into scheduled tasks and tells you which lines to remove. |
 | **Inspection** | Optional: add `[inspection]` with `roots = ["~/code/*"]` and a tab lists every repo there with one lamp and the thing that most needs you: commits on no remote, old uncommitted work, merged worktrees and branches, bots committing to your repos. A card shows churn and bug hotspots, monthly rhythm, who writes the code and build output size, and holding <kbd>w</kbd> or <kbd>b</kbd> clears merged worktrees or branches. Tags from each remote (`github`, your org) filter the list. `yard inspect` prints the same in a terminal. |
 | **Anchoring** | Reads the bar's position and your click from Hyprland's IPC, so the panel grows out of the icon on any edge. Falls back to a centered panel elsewhere. |
 | **Variants** | Hold a tile (or <kbd>Shift</kbd> + its letter) for its variants: clean build, typed parameters with history (rerun yesterday's branch), open the log, open in your editor, a terminal in the repo, copy the exact command. |
@@ -294,7 +294,8 @@ an explicit `dir`.
 yard toggle [--center]     show or hide the board (what the bar click runs)
 yard ls                    list tasks with their state
 yard run <id> [-p k=v]     run a task, with parameters or --variant
-yard stop <id>             stop a task
+yard run <id> --at 18:00   run it once later (tomorrow 08:00, fri 17:30, in 30m)
+yard stop <id>             stop a task or cancel its --at run
 yard log <id> [-f]         print or follow a task's log
 yard history [id]          what ran, folded into episodes by day
 yard inspect [repo]        what each repo needs from you (with [inspection])

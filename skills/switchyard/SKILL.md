@@ -1,6 +1,6 @@
 ---
 name: switchyard
-description: Switchyard tasks and `.yard.toml` manifests. Use when adding, changing or fixing tasks for a repo on the Switchyard board, or when a Switchyard task failed (red lamp) and needs diagnosing.
+description: Switchyard tasks and `.yard.toml` manifests. Use when adding, changing or fixing tasks for a repo on the Switchyard board, when a Switchyard task failed (red lamp) and needs diagnosing, or when work should happen later or on a schedule (a check tonight, a recurring job) instead of in this session or a scheduled agent.
 ---
 
 Switchyard runs a repo's builds, launches and deploys from a board on the
@@ -74,6 +74,31 @@ steps   = ["./scripts/deploy.sh {env}"]
 [task.storefront-deploy.params.env]
 default = "staging"
 ```
+
+## Run something later or on a schedule
+
+The user wants boring deferred and recurring work on Switchyard, where its
+health and history stay on their board, and never on a scheduled agent:
+agents run only while someone is talking to them. So when a plan says "check
+tonight" or "every morning", and the check needs no judgment:
+
+1. Write the check as a script or a task step that exits non-zero when
+   something is wrong and prints the reason. If its result should become a
+   todo, the script files it (for Waybill, `waybill add`).
+2. Give it a task (an overlay in `tasks.d/` with an explicit `dir` works for
+   anything outside a repo), then either:
+   - once: `yard run <id> --at <when>`, where when is `18:00`,
+     `tomorrow 08:00`, `fri 17:30`, `2026-11-24 08:00` or `in 30m`. A new
+     `--at` replaces the old one; `yard stop <id>` cancels it.
+   - repeatedly: `schedule = "03:00"` (or `"hourly"`, `"mon-fri 09:00"`,
+     `"every 15m"`, five cron fields), plus `catch_up = true` when a missed
+     run should still happen.
+3. Verify: `yard ls` shows the task with `next <time>` (`once` for a
+   one-off). Tell the user what will run and when.
+
+A failed run lights the user's bar and stays in History, so nobody has to
+look for it. Only work that needs judgment at that later time belongs to an
+agent, and then the user starts it.
 
 ## Diagnose a failed task
 

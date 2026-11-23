@@ -1,6 +1,6 @@
 //! The daemon: one event loop that owns every task's state.
 
-use crate::history::History;
+use crate::history::{History, Later};
 use crate::spec::{exit_file, spec_file, RunSpec};
 use crate::supervise::{self, Ended, Handle, Spawn, Supervisor};
 use crate::sys;
@@ -528,6 +528,7 @@ impl Daemon {
                 return;
             }
             Request::Run { id, params, variant, clean } => self.request_run(&id, Pending { params, variant, clean, scheduled: false }),
+            Request::RunAt { id, at, params, variant, clean } => self.run_at(&id, Later { at, params, variant, clean }),
             Request::Stop { id } => self.stop(&id),
             Request::Ack { phase, id } => self.ack(phase, id.as_deref()),
             Request::Toggle { anchor } => self.board_event(Event::Toggle { anchor }),
@@ -817,6 +818,28 @@ impl Daemon {
         Reply::msg(format!("started {}", def.label))
     }
 
+    /// Books a one-off run. It starts at `at` like a click would, or as soon
+    /// as the daemon is back if it was down then: someone asked for it.
+    fn run_at(&mut self, id: &str, l: Later) -> Reply {
+        let Some(def) = self.def(id).cloned() else {
+            return Reply::err(format!("no task named \"{id}\""));
+        };
+        if let Some(v) = &l.variant {
+            if def.variant(v).is_none() {
+                return Reply::err(format!("{} has no variant \"{v}\"", def.label));
+            }
+        }
+        let t = now();
+        if l.at < t - 60.0 {
+            return Reply::err(format!("{} is in the past", local_time(l.at)));
+        }
+        let when = yard_core::schedule::next_label(l.at, t);
+        let replaced = self.history.later.insert(id.to_string(), l).is_some();
+        self.history_dirty = true;
+        self.dirty = true;
+        Reply::msg(format!("{} runs once at {when}{}", def.label, if replaced { " (instead of the earlier time)" } else { "" }))
+    }
+
     fn steps_for(&self, def: &TaskDef, p: &Pending) -> Vec<Step> {
         let variant = p.variant.as_ref().and_then(|v| def.variant(v));
         let mut steps = variant.and_then(|v| v.steps.clone()).unwrap_or_else(|| def.steps.clone());
@@ -1062,6 +1085,13 @@ impl Daemon {
             return Reply::err(format!("no task named \"{id}\""));
         };
         let phase = self.rt(id).phase;
+        if !phase.active() {
+            if let Some(l) = self.history.later.remove(id) {
+                self.history_dirty = true;
+                self.dirty = true;
+                return Reply::msg(format!("cancelled {label}'s run at {}", yard_core::schedule::next_label(l.at, now())));
+            }
+        }
         match phase {
             Phase::Queued | Phase::Waiting => {
                 self.queue.retain(|q| q != id);
@@ -1469,6 +1499,24 @@ impl Daemon {
             }
             let _ = self.request_run(&id, Pending { scheduled: true, ..Default::default() });
         }
+        // One-off runs. One that finds its task building or queued waits for
+        // the next tick; a running one restarts, as a click would.
+        let due: Vec<String> = self.history.later.iter().filter(|(_, l)| t >= l.at).map(|(id, _)| id.clone()).collect();
+        for id in due {
+            if self.def(&id).is_none() {
+                eprintln!("switchyard: {id}: dropped its one-off run, the task is gone");
+                self.history.later.remove(&id);
+                self.history_dirty = true;
+                continue;
+            }
+            if matches!(self.rt(&id).phase, Phase::Building | Phase::Queued | Phase::Waiting) {
+                continue;
+            }
+            let Some(l) = self.history.later.remove(&id) else { continue };
+            self.history_dirty = true;
+            self.dirty = true;
+            let _ = self.request_run(&id, Pending { params: l.params, variant: l.variant, clean: l.clean, scheduled: true });
+        }
     }
 
     fn watch_run(&mut self, id: u64, sample: bool) {
@@ -1610,6 +1658,12 @@ impl Daemon {
                 let r = self.rt.get(&def.id).unwrap_or(&empty);
                 let hist = self.history.tasks.get(&def.id);
                 let last_used = self.history.last_used(&def.id);
+                // The sooner of the schedule and a one-off run, and whether it is the one-off.
+                let once = self.history.later.get(&def.id).map(|l| (l.at, true));
+                let next = match (r.next_due.map(|n| (n, false)), once) {
+                    (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
+                    (a, b) => a.or(b),
+                };
                 TaskView {
                     id: def.id.clone(),
                     label: def.label.clone(),
@@ -1655,8 +1709,15 @@ impl Daemon {
                     queue_pos: self.queue.iter().position(|q| *q == def.id),
                     command: def.command_preview(),
                     schedule: def.schedule.as_ref().map(|s| s.text().to_string()),
-                    next_run: r.next_due,
-                    next_label: r.next_due.map(|n| yard_core::schedule::next_label(n, t)),
+                    next_run: next.map(|(n, _)| n),
+                    next_label: next.map(|(n, once)| {
+                        let l = yard_core::schedule::next_label(n, t);
+                        if once {
+                            format!("{l} once")
+                        } else {
+                            l
+                        }
+                    }),
                 }
             })
             .collect();

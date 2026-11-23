@@ -171,6 +171,7 @@ pub fn run(rest: &[String]) -> Result<i32> {
     let mut params = BTreeMap::new();
     let mut variant = None;
     let mut clean = false;
+    let mut at = None;
     let mut it = rest.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -181,12 +182,19 @@ pub fn run(rest: &[String]) -> Result<i32> {
             }
             "--variant" | "-v" => variant = Some(it.next().ok_or_else(|| anyhow!("--variant needs a name"))?.clone()),
             "--clean" => clean = true,
+            "--at" => {
+                let w = it.next().ok_or_else(|| anyhow!("--at needs a time, like 18:00, tomorrow 08:00 or in 30m"))?;
+                at = Some(yard_core::schedule::when_unix(w, yard_core::model::now()).map_err(|e| anyhow!("--at: {e}"))?);
+            }
             s if id.is_none() => id = Some(s.to_string()),
             s => bail!("unexpected argument \"{s}\""),
         }
     }
-    let id = id.ok_or_else(|| anyhow!("usage: yard run <id> [-p k=v] [--variant name] [--clean]"))?;
-    simple(Request::Run { id, params, variant, clean })
+    let id = id.ok_or_else(|| anyhow!("usage: yard run <id> [-p k=v] [--variant name] [--clean] [--at when]"))?;
+    match at {
+        Some(at) => simple(Request::RunAt { id, at, params, variant, clean }),
+        None => simple(Request::Run { id, params, variant, clean }),
+    }
 }
 
 pub fn stop(rest: &[String]) -> Result<i32> {

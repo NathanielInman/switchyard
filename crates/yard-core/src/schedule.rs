@@ -148,6 +148,69 @@ pub fn next_label(next: f64, now: f64) -> String {
     }
 }
 
+/// When a one-off run should happen, from now: `18:00` (the next one),
+/// `today 18:00`, `tomorrow 08:00`, `fri 17:30` (the next Friday, today if
+/// still ahead), `2026-11-24 08:00`, or `in 30m` / `in 2h` / `in 1d` (also
+/// `+30m`). The error says what is wrong.
+pub fn when_after<Tz: TimeZone>(text: &str, now: &DateTime<Tz>) -> Result<DateTime<Tz>, String> {
+    let t = text.trim().to_lowercase();
+    let bad = || format!("\"{}\" is not a time: use 18:00, tomorrow 08:00, fri 17:30, 2026-11-24 08:00 or in 30m", text.trim());
+    if let Some(d) = t.strip_prefix("in ").or_else(|| t.strip_prefix('+')) {
+        let d = d.trim();
+        let split = d.find(|c: char| !c.is_ascii_digit()).unwrap_or(d.len());
+        let n: i64 = d[..split].parse().map_err(|_| bad())?;
+        let secs = match d[split..].trim() {
+            "s" | "sec" | "secs" | "second" | "seconds" => n,
+            "m" | "min" | "mins" | "minute" | "minutes" => n * 60,
+            "h" | "hr" | "hour" | "hours" => n * 3600,
+            "d" | "day" | "days" => n * 86400,
+            _ => return Err(bad()),
+        };
+        return Ok(now.clone() + TimeDelta::seconds(secs));
+    }
+    let tz = now.timezone();
+    let local = |n: NaiveDateTime| match tz.from_local_datetime(&n) {
+        LocalResult::Single(t) | LocalResult::Ambiguous(t, _) => Some(t),
+        LocalResult::None => None,
+    };
+    if let Ok(n) = NaiveDateTime::parse_from_str(&t.replace('t', " "), "%Y-%m-%d %H:%M") {
+        let at = local(n).ok_or_else(bad)?;
+        if at <= *now {
+            return Err(format!("{} is in the past", text.trim()));
+        }
+        return Ok(at);
+    }
+    let words: Vec<&str> = t.split_whitespace().collect();
+    let (day, time) = match words.as_slice() {
+        [time] => (None, *time),
+        [day, time] => (Some(*day), *time),
+        _ => return Err(bad()),
+    };
+    let (h, m) = clock(time).map_err(|_| bad())?;
+    let today = now.naive_local().date();
+    let at_day = |d: NaiveDate| d.and_hms_opt(h, m, 0).and_then(local);
+    let ahead = |d: NaiveDate| at_day(d).filter(|a| a > now);
+    match day {
+        None => (0..2).filter_map(|i| ahead(today + TimeDelta::days(i))).next().ok_or_else(bad),
+        Some("today") => ahead(today).ok_or_else(|| format!("{} has passed today", time)),
+        Some("tomorrow") => at_day(today + TimeDelta::days(1)).ok_or_else(bad),
+        Some(d) => {
+            let want = WEEKDAYS.iter().position(|w| d.starts_with(w)).ok_or_else(bad)? as u32;
+            (0..8)
+                .map(|i| today + TimeDelta::days(i))
+                .filter(|d| d.weekday().num_days_from_sunday() == want)
+                .find_map(ahead)
+                .ok_or_else(bad)
+        }
+    }
+}
+
+/// [`when_after`] in unix seconds, local time.
+pub fn when_unix(text: &str, now: f64) -> Result<f64, String> {
+    let n = chrono::Local.timestamp_opt(now.floor() as i64, 0).single().ok_or("the clock is out of range")?;
+    when_after(text, &n).map(|t| t.timestamp() as f64)
+}
+
 fn to_cron(t: &str) -> Result<String, String> {
     let t = t.strip_prefix('@').unwrap_or(t);
     let fixed = match t {
@@ -339,6 +402,30 @@ mod tests {
             assert!(Schedule::parse(bad).is_err(), "{bad:?} parsed");
         }
         assert!(Schedule::parse("@reboot").unwrap_err().contains("autostart"));
+    }
+
+    fn when(text: &str, from: &str) -> String {
+        when_after(text, &at(from)).unwrap_or_else(|e| panic!("{text}: {e}")).format("%Y-%m-%d %H:%M %a").to_string()
+    }
+
+    #[test]
+    fn one_off_times() {
+        // 2026-11-23 is a Monday.
+        assert_eq!(when("18:00", "2026-11-23 09:00"), "2026-11-23 18:00 Mon");
+        assert_eq!(when("08:00", "2026-11-23 09:00"), "2026-11-24 08:00 Tue");
+        assert_eq!(when("today 18:00", "2026-11-23 09:00"), "2026-11-23 18:00 Mon");
+        assert_eq!(when("tomorrow 08:00", "2026-11-23 09:00"), "2026-11-24 08:00 Tue");
+        assert_eq!(when("Fri 17:30", "2026-11-23 09:00"), "2026-11-27 17:30 Fri");
+        assert_eq!(when("monday 08:00", "2026-11-23 09:00"), "2026-11-30 08:00 Mon");
+        assert_eq!(when("mon 10:00", "2026-11-23 09:00"), "2026-11-23 10:00 Mon");
+        assert_eq!(when("2026-11-24 08:00", "2026-11-23 09:00"), "2026-11-24 08:00 Tue");
+        assert_eq!(when("2026-11-24T08:00", "2026-11-23 09:00"), "2026-11-24 08:00 Tue");
+        assert_eq!(when("in 30m", "2026-11-23 09:00"), "2026-11-23 09:30 Mon");
+        assert_eq!(when("+2h", "2026-11-23 09:00"), "2026-11-23 11:00 Mon");
+        assert_eq!(when("in 1d", "2026-11-23 09:00"), "2026-11-24 09:00 Tue");
+        for bad in ["", "later", "today 08:00", "2026-11-22 08:00", "in 5 fortnights", "blursday 08:00", "25:00"] {
+            assert!(when_after(bad, &at("2026-11-23 09:00")).is_err(), "{bad:?} parsed");
+        }
     }
 
     #[test]

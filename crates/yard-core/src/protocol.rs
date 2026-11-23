@@ -53,6 +53,18 @@ pub enum Request {
         #[serde(default)]
         clean: bool,
     },
+    /// Runs a task once at `at` (unix seconds), as if clicked then. A later
+    /// `run_at` for the same task replaces it; `stop` cancels it.
+    RunAt {
+        id: String,
+        at: f64,
+        #[serde(default)]
+        params: BTreeMap<String, String>,
+        #[serde(default)]
+        variant: Option<String>,
+        #[serde(default)]
+        clean: bool,
+    },
     Stop {
         id: String,
     },

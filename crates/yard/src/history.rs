@@ -29,6 +29,23 @@ pub struct History {
     /// Explicit Shelf placement chosen on the board; overrides the manifest.
     #[serde(default)]
     pub shelved: BTreeMap<String, bool>,
+    /// One-off runs waiting for their time, by task. Kept here so they
+    /// survive a daemon restart.
+    #[serde(default)]
+    pub later: BTreeMap<String, Later>,
+}
+
+/// A run asked for at a time (`yard run <id> --at 18:00`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct Later {
+    /// Unix seconds.
+    pub at: f64,
+    #[serde(default)]
+    pub params: BTreeMap<String, String>,
+    #[serde(default)]
+    pub variant: Option<String>,
+    #[serde(default)]
+    pub clean: bool,
 }
 
 impl History {

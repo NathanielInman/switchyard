@@ -22,9 +22,11 @@ usage: yard <command> [args]
   toggle [--center]        show or hide the board (what the bar click runs)
   show [--center] | hide   show or hide the board explicitly
   ls [--json]              list tasks with their state
-  run <id> [-p k=v]... [--variant name] [--clean]
-                           run a task
-  stop <id>                stop a task or take it out of the queue
+  run <id> [-p k=v]... [--variant name] [--clean] [--at when]
+                           run a task, now or once later (--at 18:00,
+                           tomorrow 08:00, fri 17:30, in 30m)
+  stop <id>                stop a task, take it out of the queue or
+                           cancel its --at run
   log <id> [-f] [-n N]     print or follow a task's log
   ack [id]                 acknowledge failures
   status                   one-line summary
