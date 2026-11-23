@@ -322,9 +322,9 @@ fn run_hook_command(shell: &[String], cmd: &str, env: &BTreeMap<String, String>,
     let open = || std::fs::OpenOptions::new().create(true).append(true).open(&log_path);
     let mut log = open().ok()?;
     let _ = log.write_all(head.as_bytes());
-    let (Some(prog), Ok(out), Ok(err)) = (shell.first(), open(), open()) else { return None };
-    let mut c = Command::new(prog);
-    c.args(&shell[1..]).arg(cmd).envs(env).current_dir(dir).stdin(std::process::Stdio::null()).stdout(out).stderr(err);
+    let (Ok(out), Ok(err)) = (open(), open()) else { return None };
+    let mut c = crate::spec::shell_command(shell, cmd);
+    c.envs(env).current_dir(dir).stdin(std::process::Stdio::null()).stdout(out).stderr(err);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
