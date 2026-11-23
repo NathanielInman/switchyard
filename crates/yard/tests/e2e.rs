@@ -441,7 +441,8 @@ fn the_finish_hook_hears_every_finished_run() {
     let out = sb.root.join("hook.txt");
     let out_s = out.to_string_lossy().replace('\\', "/");
     let hook = if cfg!(windows) {
-        format!("echo %YARD_TASK% %YARD_OUTCOME% %YARD_TRIGGER% %YARD_CODE%>> \"{out_s}\"")
+        // A digit right before >> would be read as a handle number: keep a space.
+        format!("echo %YARD_TASK% %YARD_OUTCOME% %YARD_TRIGGER% %YARD_CODE% >> \"{out_s}\"")
     } else {
         format!("echo \"$YARD_TASK $YARD_OUTCOME $YARD_TRIGGER $YARD_CODE $YARD_ERROR\" >> '{out_s}'")
     };
@@ -461,7 +462,8 @@ fn the_finish_hook_hears_every_finished_run() {
         if t.lines().count() >= 2 {
             break t;
         }
-        assert!(start.elapsed() < Duration::from_secs(20), "the hook did not run twice: {t:?}");
+        let log = std::fs::read_to_string(sb.root.join("state/hooks.log")).unwrap_or_default();
+        assert!(start.elapsed() < Duration::from_secs(20), "the hook did not run twice: {t:?}\nhooks.log:\n{log}");
         std::thread::sleep(Duration::from_millis(150));
     };
     assert!(lines.lines().any(|l| l.trim() == "good ok manual 0"), "{lines}");
